@@ -1,7 +1,7 @@
 import type { ElementType } from "react";
 
-export type Language = "en" | "fr" | "es" | "it" | "zh" | "ja" | "hi";
-export type Currency = "USD" | "EUR" | "GBP" | "JPY" | "CNY" | "INR";
+export type Language = "en" | "fr" | "es" | "it" | "zh" | "ja" | "hi" | "sw" | "ki" ;
+export type Currency = "USD" | "EUR" | "GBP" | "JPY" | "CNY" | "INR" | "KES" | "UGX" | "TZS" | "RWF" | "BIF" | "SSP" | "GHS" | "XAF" | "XOF" | "XPF";
 
 export type IncomeCategoryName =
   | "Salary"

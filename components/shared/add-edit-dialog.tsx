@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,14 +34,14 @@ export function AddEditDialog({
   isSaving = false,
   children,
 }: AddEditDialogProps) {
+  const t = useTranslations("common");
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-120">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          {description && (
-            <DialogDescription>{description}</DialogDescription>
-          )}
+          {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
 
         <div className="space-y-4 py-2">{children}</div>
@@ -52,7 +53,7 @@ export function AddEditDialog({
             disabled={isSaving}
             className="cursor-pointer"
           >
-            Cancel
+            {t("cancel")}
           </Button>
           <Button
             onClick={onSave}

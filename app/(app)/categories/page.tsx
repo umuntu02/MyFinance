@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { useFinanceStore } from "@/store/useFinanceStore";
 import { totalIncome, totalExpenses, incomeByCategory, expenseByCategory } from "@/lib/selectors";
 import { PageHeader } from "@/components/shared/page-header";
@@ -10,6 +11,7 @@ import { CategoryRow } from "@/components/shared/category-row";
 export default function CategoriesPage() {
   const { incomes, expenses, prefs } = useFinanceStore();
   const currency = prefs.currency;
+  const t = useTranslations("categories");
 
   const incCats  = useMemo(() => incomeByCategory(incomes), [incomes]);
   const expCats  = useMemo(() => expenseByCategory(expenses), [expenses]);
@@ -22,15 +24,15 @@ export default function CategoriesPage() {
   return (
     <>
       <PageHeader
-        title="Categories"
-        subtitle="Income and expense breakdown by category"
+        title={t("title")}
+        subtitle={t("subtitle")}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Income by Category */}
-        <SectionCard title="Income by Category" viewAllHref="/income">
+        <SectionCard title={t("incomeByCategory")} viewAllHref="/income">
           {sortedIncCats.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">No income data.</p>
+            <p className="text-sm text-muted-foreground text-center py-6">{t("noIncomeData")}</p>
           ) : (
             <div className="divide-y divide-border -mx-5 px-5">
               {sortedIncCats.map((cat) => (
@@ -50,9 +52,9 @@ export default function CategoriesPage() {
         </SectionCard>
 
         {/* Expenses by Category */}
-        <SectionCard title="Expenses by Category" viewAllHref="/expenses">
+        <SectionCard title={t("expensesByCategory")} viewAllHref="/expenses">
           {sortedExpCats.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">No expense data.</p>
+            <p className="text-sm text-muted-foreground text-center py-6">{t("noExpenseData")}</p>
           ) : (
             <div className="divide-y divide-border -mx-5 px-5">
               {sortedExpCats.map((cat) => (

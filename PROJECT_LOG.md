@@ -14,7 +14,9 @@
 - [x] Étape 2 — Types + store + seed
 - [x] Étape 3 — Composants réutilisables
 - [x] Étape 4 — Pages
-- [ ] Étape 5 — Customisation/i18n/backup/print
+- [~] Étape 5 — Customisation/i18n/backup/print
+  - [x] i18n complet (next-intl v4.13.0)
+  - [ ] backup/restore, date-picker, budget dans prefs
 
 ## Carte des fichiers
 
@@ -87,6 +89,20 @@
 |---|---|---|
 | `Encountered a script tag while rendering React component` (layout.tsx:28) | Conséquence du mismatch ci-dessous : React régénérait l'arbre depuis la racine, forçant le `<script>` de `ThemeProvider` à être rendu côté client | Corrigé implicitement par le fix ci-dessous |
 | `Hydration failed` — `Sun` vs `Monitor` dans `ThemeIcon` (topbar.tsx:108) | `useTheme()` retourne `undefined` côté serveur → fallback `"system"` → `Monitor` ; après hydratation, le thème lu depuis localStorage donne `Sun` ou `Moon` | Guard de montage dans `Topbar` : `useState(false)` + `useEffect setMounted(true)` → avant montage, `ThemeIcon` est toujours `Monitor` comme côté serveur |
+
+## i18n (next-intl v4.13.0)
+
+| Élément | Détail |
+|---|---|
+| Lib | `next-intl` v4.13.0 |
+| Fichiers messages | `messages/{en,fr,es,it,zh,ja,hi}.json` — tous les namespaces : common, sidebar, topbar, nav, dashboard, income, expenses, savingsGoals, monthlyReport, categories, settings |
+| Traductions complètes | EN + FR |
+| Fallback EN | ES, IT, ZH, JA, HI (contenu EN, à traduire) |
+| Provider | `components/providers/i18n-provider.tsx` — client component, mounted guard pour éviter le mismatch hydration, locale depuis `useFinanceStore().prefs.language` |
+| Hook | `useTranslations(namespace)` dans chaque page/composant — sidebar, topbar, toutes les 7 pages, add-edit-dialog |
+| Source de vérité | `prefs.language` (Zustand persist) — sélecteur topbar ET settings pilotent la même valeur |
+| Données non traduites | Catégories (Salary/Housing/…), noms de sources/descriptions saisies par l'utilisateur |
+| Données traduites | Tous les libellés UI : badges Paid/Pending, Positive/Negative, titres, en-têtes, boutons, labels de formulaire |
 
 ## Notes / décisions
 - `store/ui-store.ts` supprimé à l'étape 2 : la langue est désormais dans `useFinanceStore().prefs.language`

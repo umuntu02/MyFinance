@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { TrendingUp, Calendar, Hash, BarChart2, Plus, Search } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useFinanceStore } from "@/store/useFinanceStore";
 import { totalIncome, thisMonthIncome, monthlyAvg } from "@/lib/selectors";
-import { formatCurrency, formatDate, formatPercent } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { DataTable, type TableColumn } from "@/components/shared/data-table";
@@ -33,13 +34,15 @@ function emptyForm(): Omit<Income, "id"> {
 export default function IncomePage() {
   const { incomes, prefs, addIncome, updateIncome, deleteIncome } = useFinanceStore();
   const currency = prefs.currency;
+  const t  = useTranslations("income");
+  const tc = useTranslations("common");
 
-  const totalInc      = useMemo(() => totalIncome(incomes), [incomes]);
-  const thisMonth     = useMemo(() => thisMonthIncome(incomes), [incomes]);
-  const avgData       = useMemo(() => monthlyAvg(incomes, []), [incomes]);
-  const recordCount   = incomes.length;
+  const totalInc    = useMemo(() => totalIncome(incomes), [incomes]);
+  const thisMonth   = useMemo(() => thisMonthIncome(incomes), [incomes]);
+  const avgData     = useMemo(() => monthlyAvg(incomes, []), [incomes]);
+  const recordCount = incomes.length;
 
-  const [search, setSearch]     = useState("");
+  const [search, setSearch]         = useState("");
   const [filterDate, setFilterDate] = useState("");
 
   const filtered = useMemo(() => {
@@ -90,12 +93,12 @@ export default function IncomePage() {
   const columns: TableColumn<Income>[] = [
     {
       id: "date",
-      header: "Date",
+      header: t("colDate"),
       cell: (row) => <span className="text-muted-foreground">{formatDate(row.date)}</span>,
     },
     {
       id: "source",
-      header: "Source / Description",
+      header: t("colSource"),
       cell: (row) => (
         <div>
           <p className="font-medium text-foreground">{row.source}</p>
@@ -105,7 +108,7 @@ export default function IncomePage() {
     },
     {
       id: "category",
-      header: "Category",
+      header: t("colCategory"),
       cell: (row) => (
         <Badge className={`text-xs font-medium border-0 ${CATEGORY_COLORS[row.category]}`}>
           {row.category}
@@ -114,7 +117,7 @@ export default function IncomePage() {
     },
     {
       id: "amount",
-      header: "Amount",
+      header: t("colAmount"),
       headerClassName: "text-right",
       className: "text-right",
       cell: (row) => (
@@ -123,7 +126,7 @@ export default function IncomePage() {
     },
     {
       id: "notes",
-      header: "Notes",
+      header: t("colNotes"),
       cell: (row) => (
         <span className="text-muted-foreground text-xs">{row.notes ?? "—"}</span>
       ),
@@ -133,12 +136,12 @@ export default function IncomePage() {
   return (
     <>
       <PageHeader
-        title="Income"
-        subtitle="Track and manage all your income sources"
+        title={t("title")}
+        subtitle={t("subtitle")}
         actions={
           <Button size="sm" className="gap-1.5 cursor-pointer bg-income hover:bg-income/90 text-white" onClick={openAdd}>
             <Plus className="h-4 w-4" />
-            Add Income
+            {t("addIncome")}
           </Button>
         }
       />
@@ -146,25 +149,25 @@ export default function IncomePage() {
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
-          label="Total Income"
+          label={t("totalIncome")}
           value={formatCurrency(totalInc, currency)}
           icon={TrendingUp}
           iconClassName="bg-income/10 text-income"
         />
         <StatCard
-          label="This Month"
+          label={t("thisMonth")}
           value={formatCurrency(thisMonth, currency)}
           icon={Calendar}
           iconClassName="bg-muted text-muted-foreground"
         />
         <StatCard
-          label="Records"
+          label={t("records")}
           value={String(recordCount)}
           icon={Hash}
           iconClassName="bg-muted text-muted-foreground"
         />
         <StatCard
-          label="Monthly Avg"
+          label={t("monthlyAvg")}
           value={formatCurrency(avgData.income, currency)}
           icon={BarChart2}
           iconClassName="bg-brand-gold/10 text-brand-gold"
@@ -176,7 +179,7 @@ export default function IncomePage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
-            placeholder="Search by source, category…"
+            placeholder={t("searchPlaceholder")}
             className="pl-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -197,39 +200,39 @@ export default function IncomePage() {
         keyExtractor={(r) => r.id}
         onEdit={openEdit}
         onDelete={(r) => deleteIncome(r.id)}
-        emptyText="No income records found."
+        emptyText={t("noRecords")}
       />
 
       {/* Add / Edit Dialog */}
       <AddEditDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        title={editing ? "Edit Income" : "Add Income"}
-        description={editing ? "Update the income record." : "Record a new income entry."}
+        title={editing ? t("editTitle") : t("addTitle")}
+        description={editing ? t("editDesc") : t("addDesc")}
         onSave={handleSave}
-        saveLabel={editing ? "Save Changes" : "Add Income"}
+        saveLabel={editing ? tc("saveChanges") : t("addIncome")}
         isSaving={isSaving}
       >
         <div className="grid gap-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Date</label>
+              <label className="text-xs font-medium text-muted-foreground">{tc("date")}</label>
               <Input type="date" value={form.date}
                 onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Amount</label>
+              <label className="text-xs font-medium text-muted-foreground">{tc("amount")}</label>
               <Input type="number" placeholder="0.00" value={form.amount || ""}
                 onChange={(e) => setForm((f) => ({ ...f, amount: parseFloat(e.target.value) || 0 }))} />
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Source / Description</label>
-            <Input placeholder="e.g. Monthly salary" value={form.source}
+            <label className="text-xs font-medium text-muted-foreground">{t("sourceDesc")}</label>
+            <Input placeholder={t("sourcePlaceholder")} value={form.source}
               onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Category</label>
+            <label className="text-xs font-medium text-muted-foreground">{tc("category")}</label>
             <select
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
               value={form.category}
@@ -239,8 +242,8 @@ export default function IncomePage() {
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Notes (optional)</label>
-            <Input placeholder="Any additional notes…" value={form.notes ?? ""}
+            <label className="text-xs font-medium text-muted-foreground">{t("notesOptional")}</label>
+            <Input placeholder={t("notesPlaceholder")} value={form.notes ?? ""}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
           </div>
         </div>

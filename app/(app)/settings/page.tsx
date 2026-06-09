@@ -9,9 +9,21 @@ import {
   DatabaseBackup,
   ChevronRight,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useFinanceStore } from "@/store/useFinanceStore";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionCard } from "@/components/shared/section-card";
 import { Badge } from "@/components/ui/badge";
+
+const LANGUAGE_LABELS: Record<string, string> = {
+  en: "English",
+  fr: "Français",
+  es: "Español",
+  it: "Italiano",
+  zh: "中文",
+  ja: "日本語",
+  hi: "हिंदी",
+};
 
 type SettingRow = {
   label: string;
@@ -20,15 +32,15 @@ type SettingRow = {
 };
 
 function SettingsSection({
-  icon: Icon,
   title,
   rows,
   comingSoon,
+  stepLabel,
 }: {
-  icon: React.ElementType;
   title: string;
   rows: SettingRow[];
   comingSoon?: boolean;
+  stepLabel: string;
 }) {
   return (
     <SectionCard
@@ -36,7 +48,7 @@ function SettingsSection({
       headerExtra={
         comingSoon ? (
           <Badge className="text-xs font-medium border-0 bg-muted text-muted-foreground">
-            Step 5
+            {stepLabel}
           </Badge>
         ) : undefined
       }
@@ -65,100 +77,109 @@ function SettingsSection({
 }
 
 export default function SettingsPage() {
+  const { prefs } = useFinanceStore();
+  const t = useTranslations("settings");
+  const tc = useTranslations("common");
+
+  const currentLangLabel = LANGUAGE_LABELS[prefs.language] ?? "English";
+  const currentThemeLabel =
+    prefs.theme === "light" ? tc("light") :
+    prefs.theme === "dark"  ? tc("dark")  : tc("system");
+
   return (
     <>
       <PageHeader
-        title="Settings"
-        subtitle="Customize your MyFinance experience"
+        title={t("title")}
+        subtitle={t("subtitle")}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <SettingsSection
-          icon={Image}
-          title="Logo"
+          title={t("logo")}
           comingSoon
+          stepLabel={t("step5")}
           rows={[
             {
-              label: "App Logo",
-              description: "Upload a custom logo for the sidebar header",
-              badge: "Default",
+              label: t("appLogo"),
+              description: t("appLogoDesc"),
+              badge: t("default"),
             },
           ]}
         />
 
         <SettingsSection
-          icon={User}
-          title="Profile"
+          title={t("profile")}
           comingSoon
+          stepLabel={t("step5")}
           rows={[
             {
-              label: "Display Name",
-              description: "The name shown in the sidebar footer",
-              badge: "Alex",
+              label: t("displayName"),
+              description: t("displayNameDesc"),
+              badge: prefs.displayName || "Alex",
             },
             {
-              label: "Avatar",
-              description: "Upload a profile picture",
-              badge: "Default",
+              label: t("avatar"),
+              description: t("avatarDesc"),
+              badge: t("default"),
             },
           ]}
         />
 
         <SettingsSection
-          icon={DollarSign}
-          title="Currency"
+          title={t("currency")}
           comingSoon
+          stepLabel={t("step5")}
           rows={[
             {
-              label: "Display Currency",
-              description: "Currency used for all monetary values",
-              badge: "USD ($)",
+              label: t("displayCurrency"),
+              description: t("displayCurrencyDesc"),
+              badge: `${prefs.currency} (${prefs.currency === "USD" ? "$" : prefs.currency === "EUR" ? "€" : prefs.currency === "GBP" ? "£" : prefs.currency})`,
             },
           ]}
         />
 
         <SettingsSection
-          icon={Palette}
-          title="Theme"
+          title={t("theme")}
           comingSoon
+          stepLabel={t("step5")}
           rows={[
             {
-              label: "Color Theme",
-              description: "Switch between light, dark, or system theme",
-              badge: "System",
+              label: t("colorTheme"),
+              description: t("colorThemeDesc"),
+              badge: currentThemeLabel,
             },
           ]}
         />
 
         <SettingsSection
-          icon={Globe}
-          title="Language"
+          title={t("language")}
           comingSoon
+          stepLabel={t("step5")}
           rows={[
             {
-              label: "App Language",
-              description: "Change the interface language",
-              badge: "English",
+              label: t("appLanguage"),
+              description: t("appLanguageDesc"),
+              badge: currentLangLabel,
             },
           ]}
         />
 
         <SettingsSection
-          icon={DatabaseBackup}
-          title="Backup & Restore"
+          title={t("backupRestore")}
           comingSoon
+          stepLabel={t("step5")}
           rows={[
             {
-              label: "Export Data",
-              description: "Download all your data as JSON",
+              label: t("exportData"),
+              description: t("exportDataDesc"),
             },
             {
-              label: "Import Data",
-              description: "Restore from a previous JSON backup",
+              label: t("importData"),
+              description: t("importDataDesc"),
             },
             {
-              label: "Reset to Seed Data",
-              description: "Wipe all data and reload the demo dataset",
+              label: t("resetToSeed"),
+              description: t("resetToSeedDesc"),
             },
           ]}
         />

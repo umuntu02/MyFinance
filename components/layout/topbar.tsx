@@ -1,9 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
-import { useTheme } from "next-themes";
-import { Sun, Moon, Monitor, Printer, Download, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,19 +8,31 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useFinanceStore } from "@/store/useFinanceStore";
 import type { Language } from "@/types";
+import {
+  ChevronDown,
+  Download,
+  Monitor,
+  Moon,
+  Printer,
+  Sun,
+} from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useTheme } from "next-themes";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
-const PAGE_TITLES: Record<string, string> = {
-  "/dashboard": "Dashboard",
-  "/income": "Income",
-  "/expenses": "Expenses",
-  "/savings-goals": "Savings Goals",
-  "/monthly-report": "Monthly Report",
-  "/categories": "Categories",
-  "/settings": "Settings",
+const PAGE_TITLE_KEYS: Record<string, string> = {
+  "/dashboard": "dashboard",
+  "/income": "income",
+  "/expenses": "expenses",
+  "/savings-goals": "savingsGoals",
+  "/monthly-report": "monthlyReport",
+  "/categories": "categories",
+  "/settings": "settings",
 };
 
 const LANGUAGES: { code: Language; label: string; flag: string }[] = [
@@ -35,6 +43,8 @@ const LANGUAGES: { code: Language; label: string; flag: string }[] = [
   { code: "zh", label: "中文", flag: "🇨🇳" },
   { code: "ja", label: "日本語", flag: "🇯🇵" },
   { code: "hi", label: "हिंदी", flag: "🇮🇳" },
+  { code: "sw", label: "Kiswahili", flag: "🇹🇿" },
+  { code: "ki", label: "Kirundi", flag: "🇧🇮" },
 ];
 
 const THEME_ICONS: Record<string, React.ElementType> = {
@@ -49,12 +59,21 @@ export function Topbar() {
   const language = useFinanceStore((s) => s.prefs.language);
   const updatePrefs = useFinanceStore((s) => s.updatePrefs);
 
+  const t = useTranslations("topbar");
+  const tc = useTranslations("common");
+
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const title = PAGE_TITLES[pathname] ?? "MyFinance";
-  const currentLang = LANGUAGES.find((l) => l.code === language) ?? LANGUAGES[0];
-  const ThemeIcon = mounted ? (THEME_ICONS[theme ?? "system"] ?? Monitor) : Monitor;
+  const titleKey = PAGE_TITLE_KEYS[pathname];
+  const title = titleKey
+    ? t(titleKey as Parameters<typeof t>[0])
+    : t("myFinance");
+  const ThemeIcon = mounted
+    ? (THEME_ICONS[theme ?? "system"] ?? Monitor)
+    : Monitor;
+  const currentLang =
+    LANGUAGES.find((l) => l.code === language) ?? LANGUAGES[0];
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/90 backdrop-blur-sm px-4">
@@ -116,15 +135,15 @@ export function Topbar() {
             <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
               <DropdownMenuRadioItem value="light" className="cursor-pointer">
                 <Sun className="h-4 w-4 mr-2" />
-                Light
+                {tc("light")}
               </DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="dark" className="cursor-pointer">
                 <Moon className="h-4 w-4 mr-2" />
-                Dark
+                {tc("dark")}
               </DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="system" className="cursor-pointer">
                 <Monitor className="h-4 w-4 mr-2" />
-                System
+                {tc("system")}
               </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
@@ -137,7 +156,7 @@ export function Topbar() {
           variant="ghost"
           size="icon"
           className="h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer"
-          aria-label="Print"
+          aria-label={tc("print")}
           onClick={() => window.print()}
         >
           <Printer className="h-4 w-4" />
@@ -149,7 +168,7 @@ export function Topbar() {
           className="h-8 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
         >
           <Download className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline text-sm">Export</span>
+          <span className="hidden sm:inline text-sm">{tc("export")}</span>
         </Button>
       </div>
     </header>

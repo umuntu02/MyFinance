@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { TrendingUp, TrendingDown, PiggyBank, Percent, Download, Printer } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useFinanceStore } from "@/store/useFinanceStore";
 import {
   totalIncome,
@@ -42,6 +43,8 @@ const EXPENSE_COLORS: Record<string, string> = {
 export default function MonthlyReportPage() {
   const { incomes, expenses, prefs } = useFinanceStore();
   const currency = prefs.currency;
+  const t  = useTranslations("monthlyReport");
+  const tc = useTranslations("common");
 
   const inc  = useMemo(() => totalIncome(incomes), [incomes]);
   const exp  = useMemo(() => totalExpenses(expenses), [expenses]);
@@ -71,7 +74,7 @@ export default function MonthlyReportPage() {
       b.savingsRate.toFixed(1) + "%",
       b.status,
     ]);
-    const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
+    const csv  = [headers, ...rows].map((r) => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement("a");
@@ -81,20 +84,24 @@ export default function MonthlyReportPage() {
     URL.revokeObjectURL(url);
   }
 
+  const tableHeaders = [
+    t("month"), t("income"), t("expenses"), t("netSavings"), t("savingsRate"), tc("status"),
+  ];
+
   return (
     <>
       <PageHeader
-        title="Monthly Report"
-        subtitle="6-month income analysis"
+        title={t("title")}
+        subtitle={t("subtitle")}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer" onClick={handleExportCSV}>
               <Download className="h-4 w-4" />
-              CSV
+              {tc("export")} CSV
             </Button>
             <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer" onClick={() => window.print()}>
               <Printer className="h-4 w-4" />
-              Print
+              {tc("print")}
             </Button>
           </div>
         }
@@ -103,25 +110,25 @@ export default function MonthlyReportPage() {
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
-          label="6-Month Income"
+          label={t("sixMonthIncome")}
           value={formatCurrency(inc, currency)}
           icon={TrendingUp}
           iconClassName="bg-income/10 text-income"
         />
         <StatCard
-          label="6-Month Expenses"
+          label={t("sixMonthExpenses")}
           value={formatCurrency(exp, currency)}
           icon={TrendingDown}
           iconClassName="bg-expense/10 text-expense"
         />
         <StatCard
-          label="Net Savings"
+          label={t("netSavings")}
           value={formatCurrency(net, currency)}
           icon={PiggyBank}
           iconClassName="bg-brand-gold/10 text-brand-gold"
         />
         <StatCard
-          label="Avg Savings Rate"
+          label={t("avgSavingsRate")}
           value={formatPercent(rate)}
           icon={Percent}
           iconClassName="bg-muted text-muted-foreground"
@@ -131,14 +138,14 @@ export default function MonthlyReportPage() {
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <SectionCard
-          title="Monthly Savings"
+          title={t("monthlySavings")}
           headerExtra={
-            <span className="text-xs text-muted-foreground">Net savings per month</span>
+            <span className="text-xs text-muted-foreground">{t("netSavingsPerMonth")}</span>
           }
         >
           <SavingsBarChart data={barData} currency={currency} />
         </SectionCard>
-        <SectionCard title="Expense Distribution">
+        <SectionCard title={t("expenseDistribution")}>
           <ExpenseDistributionPie data={pieData} currency={currency} />
         </SectionCard>
       </div>
@@ -146,12 +153,12 @@ export default function MonthlyReportPage() {
       {/* Month-by-month breakdown table */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
-          <h3 className="font-semibold text-sm text-foreground">Month-by-Month Breakdown</h3>
+          <h3 className="font-semibold text-sm text-foreground">{t("monthByMonth")}</h3>
         </div>
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
-              {["Month", "Income", "Expenses", "Net Savings", "Savings Rate", "Status"].map((h) => (
+              {tableHeaders.map((h) => (
                 <TableHead key={h} className="text-xs font-semibold tracking-wider uppercase text-muted-foreground py-3">
                   {h}
                 </TableHead>
@@ -162,7 +169,7 @@ export default function MonthlyReportPage() {
             {breakdown.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center text-sm text-muted-foreground">
-                  No data available.
+                  {t("noData")}
                 </TableCell>
               </TableRow>
             ) : (
@@ -189,7 +196,7 @@ export default function MonthlyReportPage() {
                           : "bg-expense/10 text-expense"
                       }`}
                     >
-                      {b.status}
+                      {b.status === "Positive" ? tc("positive") : tc("negative")}
                     </Badge>
                   </TableCell>
                 </TableRow>

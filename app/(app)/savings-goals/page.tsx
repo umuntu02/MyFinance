@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Pencil, Trash2, Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useFinanceStore } from "@/store/useFinanceStore";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { PageHeader } from "@/components/shared/page-header";
@@ -24,6 +25,8 @@ function emptyForm(): Omit<SavingsGoal, "id"> {
 export default function SavingsGoalsPage() {
   const { savingsGoals, prefs, addGoal, updateGoal, deleteGoal } = useFinanceStore();
   const currency = prefs.currency;
+  const t  = useTranslations("savingsGoals");
+  const tc = useTranslations("common");
 
   const totals = useMemo(() => {
     const totalTarget = savingsGoals.reduce((s, g) => s + g.target, 0);
@@ -65,12 +68,12 @@ export default function SavingsGoalsPage() {
   return (
     <>
       <PageHeader
-        title="Savings Goals"
-        subtitle="Set goals · Track progress · Achieve dreams"
+        title={t("title")}
+        subtitle={t("subtitle")}
         actions={
           <Button size="sm" className="gap-1.5 cursor-pointer" onClick={openAdd}>
             <Plus className="h-4 w-4" />
-            New Savings Goal
+            {t("newGoal")}
           </Button>
         }
       />
@@ -79,11 +82,11 @@ export default function SavingsGoalsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         {savingsGoals.length === 0 ? (
           <div className="col-span-2 rounded-2xl border border-border bg-card p-10 text-center text-muted-foreground text-sm">
-            No savings goals yet. Click "+ New Savings Goal" to get started.
+            {t("noGoals")}
           </div>
         ) : (
           savingsGoals.map((goal) => {
-            const pct = goal.target > 0 ? (goal.saved / goal.target) * 100 : 0;
+            const pct  = goal.target > 0 ? (goal.saved / goal.target) * 100 : 0;
             const Icon = getIcon(goal.icon);
             return (
               <div
@@ -99,7 +102,7 @@ export default function SavingsGoalsPage() {
                     <div>
                       <p className="font-semibold text-foreground leading-none">{goal.name}</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Target date: {formatDate(goal.targetDate)}
+                        {t("targetDate", { date: formatDate(goal.targetDate) })}
                       </p>
                     </div>
                   </div>
@@ -126,10 +129,10 @@ export default function SavingsGoalsPage() {
                 {/* Amounts */}
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Saved: <span className="font-semibold text-foreground">{formatCurrency(goal.saved, currency)}</span>
+                    {t("saved")}: <span className="font-semibold text-foreground">{formatCurrency(goal.saved, currency)}</span>
                   </span>
                   <span className="text-muted-foreground">
-                    Goal: <span className="font-semibold text-foreground">{formatCurrency(goal.target, currency)}</span>
+                    {t("goal")}: <span className="font-semibold text-foreground">{formatCurrency(goal.target, currency)}</span>
                   </span>
                 </div>
 
@@ -148,25 +151,25 @@ export default function SavingsGoalsPage() {
 
       {/* Total summary card */}
       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-        <h3 className="font-semibold text-sm text-foreground mb-5">Total Target Remaining</h3>
+        <h3 className="font-semibold text-sm text-foreground mb-5">{t("totalTargetRemaining")}</h3>
         <div className="grid grid-cols-3 divide-x divide-border">
           <div className="pr-6 text-center">
             <p className="text-2xl font-bold text-foreground">
               {formatCurrency(totals.totalTarget, currency)}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">Total Target</p>
+            <p className="text-xs text-muted-foreground mt-1">{t("totalTarget")}</p>
           </div>
           <div className="px-6 text-center">
             <p className="text-2xl font-bold text-brand-gold">
               {formatCurrency(totals.totalSaved, currency)}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">Total Saved</p>
+            <p className="text-xs text-muted-foreground mt-1">{t("totalSaved")}</p>
           </div>
           <div className="pl-6 text-center">
             <p className="text-2xl font-bold text-expense">
               {formatCurrency(totals.remaining, currency)}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">Remaining</p>
+            <p className="text-xs text-muted-foreground mt-1">{t("remaining")}</p>
           </div>
         </div>
       </div>
@@ -175,37 +178,37 @@ export default function SavingsGoalsPage() {
       <AddEditDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        title={editing ? "Edit Savings Goal" : "New Savings Goal"}
-        description={editing ? "Update goal details." : "Create a new savings goal to track your progress."}
+        title={editing ? t("editTitle") : t("addTitle")}
+        description={editing ? t("editDesc") : t("addDesc")}
         onSave={handleSave}
-        saveLabel={editing ? "Save Changes" : "Create Goal"}
+        saveLabel={editing ? tc("saveChanges") : t("createGoal")}
         isSaving={isSaving}
       >
         <div className="grid gap-4">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Goal Name</label>
-            <Input placeholder="e.g. Emergency Fund" value={form.name}
+            <label className="text-xs font-medium text-muted-foreground">{t("goalName")}</label>
+            <Input placeholder={t("goalNamePlaceholder")} value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Amount Saved</label>
+              <label className="text-xs font-medium text-muted-foreground">{t("amountSaved")}</label>
               <Input type="number" placeholder="0.00" value={form.saved || ""}
                 onChange={(e) => setForm((f) => ({ ...f, saved: parseFloat(e.target.value) || 0 }))} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Goal Amount</label>
+              <label className="text-xs font-medium text-muted-foreground">{t("goalAmount")}</label>
               <Input type="number" placeholder="0.00" value={form.target || ""}
                 onChange={(e) => setForm((f) => ({ ...f, target: parseFloat(e.target.value) || 0 }))} />
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Target Date</label>
+            <label className="text-xs font-medium text-muted-foreground">{t("targetDateLabel")}</label>
             <Input type="date" value={form.targetDate}
               onChange={(e) => setForm((f) => ({ ...f, targetDate: e.target.value }))} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Icon</label>
+            <label className="text-xs font-medium text-muted-foreground">{t("icon")}</label>
             <select
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
               value={form.icon}

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { TrendingDown, Calendar, Wallet, Percent, Plus, Search } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useFinanceStore } from "@/store/useFinanceStore";
 import { totalExpenses, thisMonthExpenses, monthlyAvg } from "@/lib/selectors";
 import { formatCurrency, formatDate, formatPercent } from "@/lib/format";
@@ -28,11 +29,13 @@ function emptyForm(): Omit<Expense, "id"> {
 export default function ExpensesPage() {
   const { expenses, incomes, prefs, addExpense, updateExpense, deleteExpense } = useFinanceStore();
   const currency = prefs.currency;
+  const t  = useTranslations("expenses");
+  const tc = useTranslations("common");
 
-  const totalExp    = useMemo(() => totalExpenses(expenses), [expenses]);
-  const thisMonth   = useMemo(() => thisMonthExpenses(expenses), [expenses]);
-  const avgData     = useMemo(() => monthlyAvg(incomes, expenses), [incomes, expenses]);
-  const budgetUsed  = MONTHLY_BUDGET > 0 ? (thisMonth / MONTHLY_BUDGET) * 100 : 0;
+  const totalExp   = useMemo(() => totalExpenses(expenses), [expenses]);
+  const thisMonth  = useMemo(() => thisMonthExpenses(expenses), [expenses]);
+  const avgData    = useMemo(() => monthlyAvg(incomes, expenses), [incomes, expenses]);
+  const budgetUsed = MONTHLY_BUDGET > 0 ? (thisMonth / MONTHLY_BUDGET) * 100 : 0;
 
   const [search, setSearch]         = useState("");
   const [filterDate, setFilterDate] = useState("");
@@ -85,17 +88,17 @@ export default function ExpensesPage() {
   const columns: TableColumn<Expense>[] = [
     {
       id: "date",
-      header: "Date",
+      header: t("colDate"),
       cell: (row) => <span className="text-muted-foreground">{formatDate(row.date)}</span>,
     },
     {
       id: "description",
-      header: "Description",
+      header: t("colDescription"),
       cell: (row) => <span className="font-medium text-foreground">{row.description}</span>,
     },
     {
       id: "category",
-      header: "Category",
+      header: t("colCategory"),
       cell: (row) => (
         <Badge className="text-xs font-medium border-0 bg-muted text-muted-foreground">
           {row.category}
@@ -104,7 +107,7 @@ export default function ExpensesPage() {
     },
     {
       id: "amount",
-      header: "Amount",
+      header: t("colAmount"),
       headerClassName: "text-right",
       className: "text-right",
       cell: (row) => (
@@ -113,7 +116,7 @@ export default function ExpensesPage() {
     },
     {
       id: "status",
-      header: "Status",
+      header: t("colStatus"),
       cell: (row) => (
         <Badge
           className={`text-xs font-medium border-0 ${
@@ -122,7 +125,7 @@ export default function ExpensesPage() {
               : "bg-brand-gold/10 text-brand-gold"
           }`}
         >
-          {row.status}
+          {row.status === "Paid" ? tc("paid") : tc("pending")}
         </Badge>
       ),
     },
@@ -131,12 +134,12 @@ export default function ExpensesPage() {
   return (
     <>
       <PageHeader
-        title="Expenses"
-        subtitle="Track and manage all your spending"
+        title={t("title")}
+        subtitle={t("subtitle")}
         actions={
           <Button size="sm" variant="destructive" className="gap-1.5 cursor-pointer" onClick={openAdd}>
             <Plus className="h-4 w-4" />
-            Add Expense
+            {t("addExpense")}
           </Button>
         }
       />
@@ -144,30 +147,30 @@ export default function ExpensesPage() {
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
-          label="Total Expenses"
+          label={t("totalExpenses")}
           value={formatCurrency(totalExp, currency)}
           icon={TrendingDown}
           iconClassName="bg-expense/10 text-expense"
         />
         <StatCard
-          label="This Month"
+          label={t("thisMonth")}
           value={formatCurrency(thisMonth, currency)}
           icon={Calendar}
           iconClassName="bg-muted text-muted-foreground"
         />
         <StatCard
-          label="Monthly Budget"
+          label={t("monthlyBudget")}
           value={formatCurrency(MONTHLY_BUDGET, currency)}
           icon={Wallet}
           iconClassName="bg-muted text-muted-foreground"
         />
         <StatCard
-          label="Budget Used"
+          label={t("budgetUsed")}
           value={formatPercent(budgetUsed)}
           icon={Percent}
           iconClassName={budgetUsed > 90 ? "bg-expense/10 text-expense" : "bg-income/10 text-income"}
           badge={{
-            text: budgetUsed > 100 ? "Over budget" : "On track",
+            text: budgetUsed > 100 ? t("overBudget") : t("onTrack"),
             variant: budgetUsed > 100 ? "negative" : "positive",
           }}
         />
@@ -178,7 +181,7 @@ export default function ExpensesPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
-            placeholder="Search by description, category…"
+            placeholder={t("searchPlaceholder")}
             className="pl-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -199,40 +202,40 @@ export default function ExpensesPage() {
         keyExtractor={(r) => r.id}
         onEdit={openEdit}
         onDelete={(r) => deleteExpense(r.id)}
-        emptyText="No expense records found."
+        emptyText={t("noRecords")}
       />
 
       {/* Add / Edit Dialog */}
       <AddEditDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        title={editing ? "Edit Expense" : "Add Expense"}
-        description={editing ? "Update the expense record." : "Record a new expense entry."}
+        title={editing ? t("editTitle") : t("addTitle")}
+        description={editing ? t("editDesc") : t("addDesc")}
         onSave={handleSave}
-        saveLabel={editing ? "Save Changes" : "Add Expense"}
+        saveLabel={editing ? tc("saveChanges") : t("addExpense")}
         isSaving={isSaving}
       >
         <div className="grid gap-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Date</label>
+              <label className="text-xs font-medium text-muted-foreground">{tc("date")}</label>
               <Input type="date" value={form.date}
                 onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Amount</label>
+              <label className="text-xs font-medium text-muted-foreground">{tc("amount")}</label>
               <Input type="number" placeholder="0.00" value={form.amount || ""}
                 onChange={(e) => setForm((f) => ({ ...f, amount: parseFloat(e.target.value) || 0 }))} />
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Description</label>
-            <Input placeholder="e.g. Grocery shopping" value={form.description}
+            <label className="text-xs font-medium text-muted-foreground">{tc("description")}</label>
+            <Input placeholder={t("descriptionPlaceholder")} value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Category</label>
+              <label className="text-xs font-medium text-muted-foreground">{tc("category")}</label>
               <select
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
                 value={form.category}
@@ -242,14 +245,14 @@ export default function ExpensesPage() {
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Status</label>
+              <label className="text-xs font-medium text-muted-foreground">{tc("status")}</label>
               <select
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
                 value={form.status}
                 onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as "Paid" | "Pending" }))}
               >
-                <option value="Paid">Paid</option>
-                <option value="Pending">Pending</option>
+                <option value="Paid">{tc("paid")}</option>
+                <option value="Pending">{tc("pending")}</option>
               </select>
             </div>
           </div>
