@@ -162,6 +162,8 @@ Migration de localStorage (Zustand persist) vers **PostgreSQL + Prisma**, en mod
 - **Local** : `.env` (gitignored) → `DATABASE_URL=postgresql://devlin@localhost:5432/myfinance?schema=public`. `.env.example` (committé) documente DATABASE_URL + variables Better Auth (`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, à remplir en 6.2).
 - **Prod (VPS/Coolify)** : `.env` géré sur le serveur, injecté à l'environnement. **Migrations Prisma uniquement** (`prisma migrate deploy`), **jamais `db push`**.
 - `/generated` étant gitignored : le client est régénéré au déploiement via `postinstall: prisma generate` + `build: prisma generate && next build` (Coolify doit exposer `DATABASE_URL` au build).
+- **Node ≥ 22.12 obligatoire au build** : Prisma 7 (`^20.19 || ^22.12 || >=24`), Next 16 (`>=20.9`) et Tailwind oxide (`>=20`) refusent Node 18. Le build Nixpacks/Coolify partait sur Node 18 → `npm install` échouait (preinstall Prisma). Corrigé dans le repo : `engines.node = ">=22.12.0"` (package.json) + **`.nvmrc` = `22`**. Fallback si non pris en compte : variable `NIXPACKS_NODE_VERSION=22` côté Coolify.
+- Warning Docker bénin au build : `SecretsUsedInArgOrEnv` pour les env vars Coolify injectées en ENV (ex. `BETTER_AUTH_URL`) — n'empêche pas le déploiement ; marquer `DATABASE_URL`/`BETTER_AUTH_SECRET` en secrets runtime côté Coolify.
 
 ### Migrations
 - Emplacement : **`prisma/migrations/`** (versionné, source de vérité).
