@@ -1,0 +1,139 @@
+// MyFinance — Prisma schema
+// Provider: PostgreSQL. Connection comes only from env (local .env / prod Coolify).
+// Generator: Prisma 7 `prisma-client` (ESM client emitted to /generated, gitignored).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Connection URL lives in prisma.config.ts (env-only). Prisma 7 no longer
+  // accepts `url = env(...)` inside the schema datasource block.
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// User
+// Minimal anchor for now: every financial record belongs to a userId.
+// Better Auth completes this model (and adds Session/Account/Verification)
+// at step 6.2 — do not pre-build its fields here.
+// ─────────────────────────────────────────────────────────────────────────────
+model User {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  incomes    Income[]
+  expenses   Expense[]
+  goals      SavingsGoal[]
+  categories Category[]
+  prefs      UserPrefs?
+
+  @@map("user")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Financial data — all owned by a User (onDelete: Cascade, indexed on userId)
+// Money is stored as Decimal(12,2); convert to number at the API boundary.
+// `date`/`targetDate` are date-only (was "YYYY-MM-DD" strings in localStorage).
+// `category` holds the category name (string), matching the chosen Category.name.
+// ─────────────────────────────────────────────────────────────────────────────
+model Income {
+  id        String   @id @default(cuid())
+  date      DateTime @db.Date
+  source    String
+  category  String
+  amount    Decimal  @db.Decimal(12, 2)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Expense {
+  id          String        @id @default(cuid())
+  date        DateTime      @db.Date
+  description String
+  category    String
+  amount      Decimal       @db.Decimal(12, 2)
+  status      ExpenseStatus @default(Paid)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model SavingsGoal {
+  id         String   @id @default(cuid())
+  name       String
+  icon       String // lucide icon name (string, serialisable)
+  saved      Decimal  @db.Decimal(12, 2)
+  target     Decimal  @db.Decimal(12, 2)
+  targetDate DateTime @db.Date
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Category — real table now (one row per available category, per user).
+// `type` discriminates income vs expense. `isDefault` marks the per-user
+// defaults seeded at account creation (Salary/Housing/…); users add their own.
+// ─────────────────────────────────────────────────────────────────────────────
+model Category {
+  id        String       @id @default(cuid())
+  name      String
+  icon      String
+  type      CategoryType
+  isDefault Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, name])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UserPrefs — 1-1 with User (Settings page).
+// monthlyBudget replaces the hard-coded MONTHLY_BUDGET ($3500).
+// ─────────────────────────────────────────────────────────────────────────────
+model UserPrefs {
+  id            String   @id @default(cuid())
+  currency      String   @default("USD")
+  language      String   @default("en")
+  theme         String   @default("system")
+  displayName   String   @default("")
+  logoUrl       String?
+  avatarUrl     String?
+  monthlyBudget Decimal  @default(3500) @db.Decimal(12, 2)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum CategoryType {
+  income
+  expense
+}
+
+enum ExpenseStatus {
+  Paid
+  Pending
+}

@@ -17,6 +17,10 @@
 - [~] Étape 5 — Customisation/i18n/backup/print
   - [x] i18n complet (next-intl v4.13.0)
   - [ ] backup/restore, date-picker, budget dans prefs
+- [~] Étape 6 — Migration multi-utilisateurs (localStorage → PostgreSQL + Prisma + Better Auth)
+  - [x] 6.1 — Base de données (Prisma + Postgres : schéma, migration `init`, client) — cf. section « Base de données »
+  - [ ] 6.2 — Better Auth (tables auth, login/signup, seed des catégories + prefs par utilisateur)
+  - [ ] 6.3 — Migration des pages + remplacement du store Zustand par la DB
 
 ## Carte des fichiers
 
@@ -59,6 +63,13 @@
 | `components/ui/table.tsx` | Composant shadcn Table (installé étape 3) |
 | `components/ui/dialog.tsx` | Composant shadcn Dialog (installé étape 3) |
 | `components/ui/badge.tsx` | Composant shadcn Badge (installé étape 3) |
+| `prisma/schema.prisma` | Schéma Prisma : User, Income, Expense, SavingsGoal, Category, UserPrefs + enums |
+| `prisma.config.ts` | Config Prisma 7 : chemin schéma + `datasource.url = process.env.DATABASE_URL` (charge `.env` via dotenv) |
+| `prisma/migrations/` | Migrations SQL versionnées (source de vérité prod, pas de `db push`) |
+| `lib/prisma.ts` | Singleton PrismaClient (global hot-reload) via driver adapter `@prisma/adapter-pg` |
+| `generated/` | Client Prisma généré (gitignored — régénéré par `postinstall`/`build`) |
+| `.env.example` | Variables d'env committées (DATABASE_URL + Better Auth) |
+| `.env` | Variables locales (gitignored) |
 
 ## Conventions clés
 - Aucun composant ne lit localStorage directement : tout passe par `useFinanceStore`
@@ -118,3 +129,44 @@
   - Settings : toutes les sections sont des placeholders cliquables sans logique ; logique complète à l'étape 5
   - `formatPercent` affiche 1 décimale (ex. "60.0%") — conforme à la maquette
   - Tailwind warnings `sm:w-[180px]` → `sm:w-45` et `max-w-[200px]` → `max-w-50` appliqués (Tailwind v4)
+
+## Base de données (étape 6.1)
+
+Migration de localStorage (Zustand persist) vers **PostgreSQL + Prisma**, en mode **multi-utilisateurs** : chaque donnée financière appartient à un `userId`. Cette sous-étape ne fait QUE la base — pas encore d'auth (6.2), pas encore de migration des pages (6.3). Le store Zustand et `lib/seed.ts` sont **intacts** (`seed.ts` deviendra la source du seed par-utilisateur).
+
+### Stack DB
+- Prisma **7.8.0** + `@prisma/client` 7.8.0
+- Generator `prisma-client` (Prisma 7, ESM) → sortie `/generated` (gitignored, regénérée)
+- Driver adapter **`@prisma/adapter-pg`** + `pg` (workflow SQL Prisma 7, requis au runtime)
+- `dotenv` (devDep) : charge `.env` dans `prisma.config.ts`
+
+### Modèles (dérivés de `types/index.ts` + `lib/seed.ts`)
+
+| Modèle | Champs | Notes |
+|---|---|---|
+| `User` (`@@map("user")`) | id, createdAt, updatedAt + relations | **Minimal** : ancre des FK. Better Auth complètera ce modèle et ajoutera Session/Account/Verification en 6.2 |
+| `Income` | date (Date), source, category (String), amount (Decimal 12,2), notes?, userId | `category` = nom de catégorie (String) |
+| `Expense` | date (Date), description, category (String), amount (Decimal 12,2), status (enum `ExpenseStatus`=Paid/Pending, défaut Paid), userId | |
+| `SavingsGoal` | name, icon (nom lucide String), saved (Decimal), target (Decimal), targetDate (Date), userId | |
+| `Category` | id, name, icon, type (enum `CategoryType`=income/expense), isDefault (bool), userId | **Table unique** discriminée par `type` (≠ 2 tables). Défauts seedés par utilisateur en 6.2 ; `isDefault` les marque. Contrainte `@@unique([userId, type, name])` |
+| `UserPrefs` | currency, language, theme, displayName, logoUrl?, avatarUrl?, **monthlyBudget** (Decimal défaut **3500**), userId @unique | Relation **1-1** avec User. `monthlyBudget` **remplace** le `MONTHLY_BUDGET` codé en dur à $3 500 |
+
+### Relations & contraintes
+- Toutes les tables financières (Income, Expense, SavingsGoal, Category, UserPrefs) → FK `userId` vers `User`, **`onDelete: Cascade`**, **index sur `userId`** (`UserPrefs` : index implicite via `@unique`).
+- Enums Postgres : `CategoryType` (income|expense), `ExpenseStatus` (Paid|Pending).
+- **Argent en `Decimal(12,2)`** (pas Float) → en 6.3, convertir en `number` à la frontière API (les types TS app utilisent `number`).
+- **Dates** `date`/`targetDate` en `@db.Date` (date seule ; étaient des strings "YYYY-MM-DD").
+
+### Connexion — env-only (local vs prod)
+- Prisma 7 **n'accepte plus `url` dans le bloc datasource** du schéma → l'URL vit dans **`prisma.config.ts`** : `datasource.url = process.env.DATABASE_URL` (`.env` chargé via `dotenv`). Aucune valeur en dur. On lit `process.env` directement (pas le helper `env()` qui lève une erreur si absent) pour que `prisma generate` — qui n'a pas besoin de la DB — ne plante jamais au `postinstall`/`build` sans `DATABASE_URL` ; seules les commandes `migrate` exigent l'URL.
+- **Local** : `.env` (gitignored) → `DATABASE_URL=postgresql://devlin@localhost:5432/myfinance?schema=public`. `.env.example` (committé) documente DATABASE_URL + variables Better Auth (`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, à remplir en 6.2).
+- **Prod (VPS/Coolify)** : `.env` géré sur le serveur, injecté à l'environnement. **Migrations Prisma uniquement** (`prisma migrate deploy`), **jamais `db push`**.
+- `/generated` étant gitignored : le client est régénéré au déploiement via `postinstall: prisma generate` + `build: prisma generate && next build` (Coolify doit exposer `DATABASE_URL` au build).
+
+### Migrations
+- Emplacement : **`prisma/migrations/`** (versionné, source de vérité).
+- Première migration : `20260614232234_init` (créée par `prisma migrate dev --name init`) — 7 tables, 2 enums, 5 FK cascade, index `userId`.
+- Vérifié : connexion OK, tables/enums/FK/index présents, `tsc --noEmit` clean.
+
+### Fichiers ajoutés
+`prisma/schema.prisma`, `prisma.config.ts`, `prisma/migrations/`, `lib/prisma.ts` (singleton global + adapter pg), `.env.example`, `.env` (local), `/generated` (gitignored). `.gitignore` : `!.env.example` + `/generated`.
