@@ -1,6 +1,6 @@
 "use client";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { UserMenu } from "@/components/layout/user-menu";
 import {
   Sidebar,
   SidebarContent,
@@ -13,7 +13,6 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-import { useFinanceStore } from "@/store/useFinanceStore";
 import {
   BarChart3,
   LayoutDashboard,
@@ -32,7 +31,6 @@ export function AppSidebar() {
   const pathname = usePathname();
   const t = useTranslations("sidebar");
   const tn = useTranslations("nav");
-  const displayName = useFinanceStore((s) => s.prefs.displayName);
 
   const navSections = [
     {
@@ -65,8 +63,6 @@ export function AppSidebar() {
       items: [{ title: tn("settings"), href: "/settings", icon: Settings }],
     },
   ];
-
-  const initials = displayName ? displayName.charAt(0).toUpperCase() : "A";
 
   return (
     <Sidebar collapsible="icon">
@@ -128,23 +124,9 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
 
-      {/* Footer: user avatar */}
-      <SidebarFooter className="border-t border-sidebar-border px-4 py-4">
-        <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
-          <Avatar className="h-8 w-8 shrink-0">
-            <AvatarFallback className="bg-brand-gold text-[oklch(0.12_0.02_152)] font-bold text-xs">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-            <p className="text-sm font-semibold text-sidebar-foreground leading-none">
-              {displayName || "Alex"}
-            </p>
-            <p className="text-[11px] text-sidebar-foreground/50 mt-0.5">
-              {t("budgetProUser")}
-            </p>
-          </div>
-        </div>
+      {/* Footer: signed-in user + logout */}
+      <SidebarFooter className="border-t border-sidebar-border px-3 py-3">
+        <UserMenu />
       </SidebarFooter>
     </Sidebar>
   );

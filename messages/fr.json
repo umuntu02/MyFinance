@@ -20,7 +20,8 @@
     "light": "Clair",
     "dark": "Sombre",
     "system": "Système",
-    "optional": "optionnel"
+    "optional": "optionnel",
+    "logout": "Déconnexion"
   },
   "sidebar": {
     "overview": "APERÇU",
@@ -206,6 +207,44 @@
     "resetToSeedDesc": "Effacer toutes les données et recharger le jeu de données démo",
     "default": "Défaut",
     "system": "Système",
-    "step5": "Étape 5"
+    "step5": "Étape 5",
+    "demoData": "Données de démo",
+    "loadDemo": "Charger des données de démo",
+    "loadDemoDesc": "Remplir ce compte avec un jeu de données d'exemple réaliste sur 6 mois",
+    "loadDemoAction": "Charger des données de démo",
+    "loadingDemo": "Chargement…",
+    "demoLoaded": "Données de démo chargées pour votre compte.",
+    "demoError": "Impossible de charger les données de démo. Veuillez réessayer."
+  },
+  "login": {
+    "title": "Bon retour",
+    "subtitle": "Connectez-vous à votre compte MyFinance",
+    "email": "E-mail",
+    "emailPlaceholder": "vous@exemple.com",
+    "password": "Mot de passe",
+    "passwordPlaceholder": "Votre mot de passe",
+    "submit": "Se connecter",
+    "submitting": "Connexion…",
+    "noAccount": "Pas encore de compte ?",
+    "registerLink": "Créer un compte",
+    "error": "E-mail ou mot de passe invalide.",
+    "genericError": "Une erreur est survenue. Veuillez réessayer."
+  },
+  "register": {
+    "title": "Créez votre compte",
+    "subtitle": "Commencez à suivre votre budget en quelques minutes",
+    "name": "Nom",
+    "namePlaceholder": "Votre nom",
+    "email": "E-mail",
+    "emailPlaceholder": "vous@exemple.com",
+    "password": "Mot de passe",
+    "passwordPlaceholder": "Au moins 8 caractères",
+    "submit": "Créer le compte",
+    "submitting": "Création du compte…",
+    "haveAccount": "Vous avez déjà un compte ?",
+    "loginLink": "Se connecter",
+    "passwordTooShort": "Le mot de passe doit comporter au moins 8 caractères.",
+    "emailExists": "Un compte avec cet e-mail existe déjà.",
+    "genericError": "Une erreur est survenue. Veuillez réessayer."
   }
 }

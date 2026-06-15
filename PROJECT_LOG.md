@@ -19,7 +19,7 @@
   - [ ] backup/restore, date-picker, budget dans prefs
 - [~] Étape 6 — Migration multi-utilisateurs (localStorage → PostgreSQL + Prisma + Better Auth)
   - [x] 6.1 — Base de données (Prisma + Postgres : schéma, migration `init`, client) — cf. section « Base de données »
-  - [ ] 6.2 — Better Auth (tables auth, login/signup, seed des catégories + prefs par utilisateur)
+  - [x] 6.2 — Better Auth (email+password, /login + /register, proxy de protection, seed catégories + prefs par utilisateur) — cf. section « Auth »
   - [ ] 6.3 — Migration des pages + remplacement du store Zustand par la DB
 
 ## Carte des fichiers
@@ -68,8 +68,22 @@
 | `prisma/migrations/` | Migrations SQL versionnées (source de vérité prod, pas de `db push`) |
 | `lib/prisma.ts` | Singleton PrismaClient (global hot-reload) via driver adapter `@prisma/adapter-pg` |
 | `generated/` | Client Prisma généré (gitignored — régénéré par `postinstall`/`build`) |
-| `.env.example` | Variables d'env committées (DATABASE_URL + Better Auth) |
+| `.env.example` | Variables d'env committées (DATABASE_URL + Better Auth + OAuth optionnel) |
 | `.env` | Variables locales (gitignored) |
+| `lib/auth.ts` | Instance Better Auth serveur : adapter Prisma (Postgres), email+password, social providers conditionnels, hook `user.create.after` (seed), plugin `nextCookies` |
+| `lib/auth-client.ts` | Client Better Auth navigateur (`better-auth/react`) : `signIn`/`signUp`/`signOut`/`useSession` |
+| `lib/user-seed.ts` | `seedDefaultsForUser` (catégories défaut + UserPrefs au signup) et `loadDemoDataForUser` (jeu de démo seed.ts, idempotent) |
+| `app/api/auth/[...all]/route.ts` | Route handler catch-all Better Auth (`toNextJsHandler`) |
+| `proxy.ts` | **Next 16** (ex-`middleware.ts`) : redirige vers /login sans cookie de session (matcher = routes (app)) |
+| `app/(auth)/layout.tsx` | Shell public centré pour les écrans d'auth (I18nProvider) |
+| `app/(auth)/login/page.tsx` | Server Component : redirige si déjà connecté, rend `LoginForm` |
+| `app/(auth)/register/page.tsx` | Server Component : redirige si déjà connecté, rend `RegisterForm` |
+| `components/auth/auth-card.tsx` | Carte + champ labellisé partagés par les 2 formulaires d'auth |
+| `components/auth/login-form.tsx` | Formulaire client login (`signIn.email`) |
+| `components/auth/register-form.tsx` | Formulaire client inscription (`signUp.email`) |
+| `components/layout/user-menu.tsx` | Footer sidebar : utilisateur connecté (`useSession`) + Logout |
+| `components/settings/demo-data-button.tsx` | Bouton client « Charger des données de démo » (appelle la server action) |
+| `app/(app)/settings/actions.ts` | Server action `loadDemoDataAction` : re-vérifie la session puis seed démo |
 
 ## Conventions clés
 - Aucun composant ne lit localStorage directement : tout passe par `useFinanceStore`
@@ -106,7 +120,7 @@
 | Élément | Détail |
 |---|---|
 | Lib | `next-intl` v4.13.0 |
-| Fichiers messages | `messages/{en,fr,es,it,zh,ja,hi}.json` — tous les namespaces : common, sidebar, topbar, nav, dashboard, income, expenses, savingsGoals, monthlyReport, categories, settings |
+| Fichiers messages | `messages/{en,fr,es,it,zh,ja,hi,sw,ki}.json` — namespaces : common, sidebar, topbar, nav, dashboard, income, expenses, savingsGoals, monthlyReport, categories, settings, **login**, **register** (auth ajoutés en 6.2) |
 | Traductions complètes | EN + FR |
 | Fallback EN | ES, IT, ZH, JA, HI (contenu EN, à traduire) |
 | Provider | `components/providers/i18n-provider.tsx` — client component, mounted guard pour éviter le mismatch hydration, locale depuis `useFinanceStore().prefs.language` |
@@ -172,3 +186,46 @@ Migration de localStorage (Zustand persist) vers **PostgreSQL + Prisma**, en mod
 
 ### Fichiers ajoutés
 `prisma/schema.prisma`, `prisma.config.ts`, `prisma/migrations/`, `lib/prisma.ts` (singleton global + adapter pg), `.env.example`, `.env` (local), `/generated` (gitignored). `.gitignore` : `!.env.example` + `/generated`.
+
+## Auth (étape 6.2)
+
+Authentification **multi-utilisateurs e-mail + mot de passe** via **Better Auth 1.6.18**, comptes isolés. Réutilise la base Postgres/Prisma de 6.1 (aucune nouvelle base, aucun fallback). Better Auth gère le hachage des mots de passe (jamais en clair) ; aucun secret en dur ; `.env` gitignoré.
+
+### Briques
+| Brique | Détail |
+|---|---|
+| Lib serveur | `lib/auth.ts` — `betterAuth()` : `prismaAdapter(prisma, { provider: "postgresql" })`, `emailAndPassword.enabled`, hook `databaseHooks.user.create.after` (seed), plugin `nextCookies()` **en dernier** |
+| Lib client | `lib/auth-client.ts` — `createAuthClient()` depuis `better-auth/react` ; exporte `signIn/signUp/signOut/useSession` |
+| Route API | `app/api/auth/[...all]/route.ts` — `export const { GET, POST } = toNextJsHandler(auth)` |
+| Protection | `proxy.ts` — **Next 16 : `middleware` est renommé `proxy`** (runtime Node par défaut). Check optimiste `getSessionCookie` ; pas de cookie → redirect `/login`. `matcher` = `/` + toutes les routes (app). `/login`, `/register`, `/api`, assets non matchés |
+| Pages | `app/(auth)/{login,register}/page.tsx` (Server Components : redirect `/dashboard` si déjà connecté) + formulaires clients `components/auth/{login,register}-form.tsx` + `auth-card.tsx`. Design cohérent (tokens, thème clair/sombre, responsive) |
+| Sidebar | Footer = `components/layout/user-menu.tsx` : `useSession()` → nom/avatar (fallback prefs) + **Logout** (`signOut` → `/login`) |
+
+### Providers sociaux
+Ajoutés **uniquement si** les credentials existent dans `.env` (`GOOGLE_CLIENT_ID/SECRET`, `GITHUB_CLIENT_ID/SECRET`). Aucun configuré aujourd'hui → **email + password seulement**. `.env.example` documente ces variables (commentées).
+
+### Flux d'inscription + seed par-utilisateur
+- Hook Better Auth `user.create.after` → `seedDefaultsForUser(user.id, user.name)` (`lib/user-seed.ts`) : crée les **catégories par défaut** (income : Salary/Freelance/Investment/Bonus/Other ; expense : Housing/Food & Dining/Transport/Utilities/Entertainment/Healthcare/Shopping/Other, `isDefault=true`, icônes alignées sur `selectors.ts`) + **UserPrefs** (`currency USD`, `language en`, `theme system`, `monthlyBudget 3500`, `displayName = user.name`).
+- **Compte vierge** : les 18 revenus / 98 dépenses de démo **ne sont pas** seedés. À la place, bouton **« Charger des données de démo »** dans Settings (`components/settings/demo-data-button.tsx`) → server action `app/(app)/settings/actions.ts` → `loadDemoDataForUser` (re-vérifie la session ; vide puis réinsère les données de `lib/seed.ts` pour l'utilisateur courant — idempotent).
+- ⚠️ Étape 6.3 non faite : les pages lisent encore Zustand/localStorage. Les données seedées vivent en DB et seront branchées à l'UI en 6.3.
+
+### Réconciliation du schéma — **un seul modèle User**
+- Schéma généré par **`npx @better-auth/cli generate`** (PAS `npx auth migrate`) : merge propre dans le `User` existant (ajout `name/email/emailVerified/image` + relations `sessions/accounts`, conservation des relations financières + `@@map("user")`) ; nouvelles tables `Session/Account/Verification`.
+- Vérifié : **1 seul `model User`** (mappé `user`). Les 5 modèles financiers (Income, Expense, SavingsGoal, Category, UserPrefs) + Session/Account pointent sur `User.id`, `onDelete: Cascade`. Pas de table user en double.
+
+### Migration appliquée
+- `prisma migrate dev` est interactif (refuse l'environnement non-interactif à cause du warning unique `email`). Workflow non-interactif utilisé :
+  1. `npx @better-auth/cli generate --y` (réécrit `schema.prisma`),
+  2. réconciliation manuelle du `model User`,
+  3. `npx prisma migrate diff --from-schema <avant> --to-schema schema.prisma --script -o .../migration.sql` (flags Prisma 7 : `--from-schema`/`--to-schema`),
+  4. `npx prisma migrate deploy` + `npx prisma generate`.
+- Migration créée : `20260615041411_better_auth` (ALTER `user` +4 colonnes ; tables `session`/`account`/`verification` ; index ; FK cascade ; unique `user.email`).
+- Vérifié : `tsc --noEmit` clean, `next build` OK (`/login` `/register` `/api/auth/[...all]` dynamiques, `ƒ Proxy` actif).
+
+### Variables `.env`
+- `BETTER_AUTH_SECRET` — généré par `openssl rand -base64 32` (≥ 32 car.). Réel uniquement dans `.env` (local) / l'hôte (prod), jamais committé.
+- `BETTER_AUTH_URL` — `http://localhost:3000` en local. **Prod (Coolify/VPS) : doit pointer sur le vrai domaine** (ex. `https://myfinance.example.com`).
+- `.env.example` : `BETTER_AUTH_SECRET=""`, `BETTER_AUTH_URL`, + variables OAuth commentées.
+
+### Fichiers ajoutés (6.2)
+`lib/auth.ts`, `lib/auth-client.ts`, `lib/user-seed.ts`, `app/api/auth/[...all]/route.ts`, `proxy.ts`, `app/(auth)/layout.tsx`, `app/(auth)/{login,register}/page.tsx`, `components/auth/{auth-card,login-form,register-form}.tsx`, `components/layout/user-menu.tsx`, `components/settings/demo-data-button.tsx`, `app/(app)/settings/actions.ts`, `prisma/migrations/20260615041411_better_auth/`. Modifiés : `prisma/schema.prisma`, `app/(app)/settings/page.tsx`, `components/layout/sidebar.tsx`, `messages/*.json` (namespaces `login`/`register` + clés `common.logout`, `settings.demo*`), `.env`, `.env.example`, `package.json` (dép. `better-auth`).

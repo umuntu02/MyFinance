@@ -14,6 +14,7 @@ import { useFinanceStore } from "@/store/useFinanceStore";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionCard } from "@/components/shared/section-card";
 import { Badge } from "@/components/ui/badge";
+import { DemoDataButton } from "@/components/settings/demo-data-button";
 
 const LANGUAGE_LABELS: Record<string, string> = {
   en: "English",
@@ -183,6 +184,13 @@ export default function SettingsPage() {
             },
           ]}
         />
+
+        <SectionCard title={t("demoData")}>
+          <div className="flex flex-col gap-4 py-1">
+            <p className="text-sm text-muted-foreground">{t("loadDemoDesc")}</p>
+            <DemoDataButton />
+          </div>
+        </SectionCard>
       </div>
     </>
   );

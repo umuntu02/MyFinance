@@ -20,7 +20,8 @@
     "light": "Mwanga",
     "dark": "Giza",
     "system": "Mfumo",
-    "optional": "hiari"
+    "optional": "hiari",
+    "logout": "Log out"
   },
   "sidebar": {
     "overview": "MUHTASARI",
@@ -206,6 +207,44 @@
     "resetToSeedDesc": "Futa data zote na upakie tena seti ya data ya majaribio",
     "default": "Chaguomsingi",
     "system": "Mfumo",
-    "step5": "Hatua ya 5"
+    "step5": "Hatua ya 5",
+    "demoData": "Demo Data",
+    "loadDemo": "Load Demo Data",
+    "loadDemoDesc": "Fill this account with a realistic 6-month sample dataset",
+    "loadDemoAction": "Load demo data",
+    "loadingDemo": "Loading…",
+    "demoLoaded": "Demo data loaded for your account.",
+    "demoError": "Could not load demo data. Please try again."
+  },
+  "login": {
+    "title": "Welcome back",
+    "subtitle": "Sign in to your MyFinance account",
+    "email": "Email",
+    "emailPlaceholder": "you@example.com",
+    "password": "Password",
+    "passwordPlaceholder": "Your password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "noAccount": "Don't have an account?",
+    "registerLink": "Create one",
+    "error": "Invalid email or password.",
+    "genericError": "Something went wrong. Please try again."
+  },
+  "register": {
+    "title": "Create your account",
+    "subtitle": "Start tracking your budget in minutes",
+    "name": "Name",
+    "namePlaceholder": "Your name",
+    "email": "Email",
+    "emailPlaceholder": "you@example.com",
+    "password": "Password",
+    "passwordPlaceholder": "At least 8 characters",
+    "submit": "Create account",
+    "submitting": "Creating account…",
+    "haveAccount": "Already have an account?",
+    "loginLink": "Sign in",
+    "passwordTooShort": "Password must be at least 8 characters.",
+    "emailExists": "An account with this email already exists.",
+    "genericError": "Something went wrong. Please try again."
   }
 }
