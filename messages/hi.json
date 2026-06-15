@@ -21,7 +21,8 @@
     "dark": "गहरा",
     "system": "सिस्टम",
     "optional": "वैकल्पिक",
-    "logout": "Log out"
+    "logout": "Log out",
+    "errorGeneric": "Something went wrong. Please try again."
   },
   "sidebar": {
     "overview": "अवलोकन",
@@ -176,7 +177,18 @@
     "incomeByCategory": "श्रेणी के अनुसार आय",
     "expensesByCategory": "श्रेणी के अनुसार खर्च",
     "noIncomeData": "कोई आय डेटा नहीं।",
-    "noExpenseData": "कोई खर्च डेटा नहीं।"
+    "noExpenseData": "कोई खर्च डेटा नहीं।",
+    "addCategory": "Add",
+    "addIncomeCategory": "Add Income Category",
+    "addExpenseCategory": "Add Expense Category",
+    "addCategoryDesc": "Create a new category to organize your transactions.",
+    "categoryName": "Category Name",
+    "categoryNamePlaceholder": "e.g. Subscriptions",
+    "categoryIcon": "Icon",
+    "create": "Add Category",
+    "deleteCategory": "Delete category",
+    "noCategories": "No categories yet.",
+    "duplicateError": "A category with this name already exists."
   },
   "settings": {
     "title": "सेटिंग्स",

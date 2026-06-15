@@ -6,11 +6,13 @@ import { CheckCircle2, Database, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { loadDemoDataAction } from "@/app/(app)/settings/actions";
+import { useFinanceStore } from "@/store/useFinanceStore";
 
 type Status = "idle" | "done" | "error";
 
 export function DemoDataButton() {
   const t = useTranslations("settings");
+  const hydrate = useFinanceStore((s) => s.hydrate);
   const [isPending, startTransition] = useTransition();
   const [status, setStatus] = useState<Status>("idle");
 
@@ -18,7 +20,13 @@ export function DemoDataButton() {
     setStatus("idle");
     startTransition(async () => {
       const res = await loadDemoDataAction();
-      setStatus(res.ok ? "done" : "error");
+      if (res.ok) {
+        // Reflect the freshly-seeded data in the client cache immediately.
+        hydrate(res.data);
+        setStatus("done");
+      } else {
+        setStatus("error");
+      }
     });
   }
 

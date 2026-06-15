@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useFinanceStore } from "@/store/useFinanceStore";
+import { createIncome as createIncomeAction } from "@/app/actions/incomes";
+import { createExpense as createExpenseAction } from "@/app/actions/expenses";
 import {
   totalIncome,
   totalExpenses,
@@ -21,6 +23,7 @@ import {
 } from "@/lib/selectors";
 import { formatCurrency, formatDate, formatPercent } from "@/lib/format";
 import { PageHeader } from "@/components/shared/page-header";
+import { PageLoading } from "@/components/shared/page-loading";
 import { StatCard } from "@/components/shared/stat-card";
 import { SectionCard } from "@/components/shared/section-card";
 import { ProgressBar } from "@/components/shared/progress-bar";
@@ -43,26 +46,26 @@ const EXPENSE_COLORS: Record<string, string> = {
   Other:           "#adb5bd",
 };
 
-const INCOME_CATEGORIES: IncomeCategoryName[] = [
-  "Salary", "Freelance", "Investment", "Bonus", "Other",
-];
-const EXPENSE_CATEGORIES: ExpenseCategoryName[] = [
-  "Housing", "Food & Dining", "Transport", "Utilities",
-  "Entertainment", "Healthcare", "Shopping", "Other",
-];
-
 function defaultIncomeForm() {
-  return { date: "", source: "", category: "Salary" as IncomeCategoryName, amount: "", notes: "" };
+  return { date: "", source: "", category: "", amount: "", notes: "" };
 }
 function defaultExpenseForm() {
   return {
-    date: "", description: "", category: "Other" as ExpenseCategoryName,
+    date: "", description: "", category: "",
     amount: "", status: "Paid" as "Paid" | "Pending",
   };
 }
 
 export default function DashboardPage() {
-  const { incomes, expenses, savingsGoals, prefs, addIncome, addExpense } = useFinanceStore();
+  const incomes = useFinanceStore((s) => s.incomes);
+  const expenses = useFinanceStore((s) => s.expenses);
+  const savingsGoals = useFinanceStore((s) => s.savingsGoals);
+  const prefs = useFinanceStore((s) => s.prefs);
+  const incomeCategories = useFinanceStore((s) => s.incomeCategories);
+  const expenseCategories = useFinanceStore((s) => s.expenseCategories);
+  const hydrated = useFinanceStore((s) => s.hydrated);
+  const addIncome = useFinanceStore((s) => s.addIncome);
+  const addExpense = useFinanceStore((s) => s.addExpense);
   const t  = useTranslations("dashboard");
   const tc = useTranslations("common");
 
@@ -93,40 +96,72 @@ export default function DashboardPage() {
   const [incomeOpen, setIncomeOpen] = useState(false);
   const [incomeForm, setIncomeForm] = useState(defaultIncomeForm);
   const [savingIncome, setSavingIncome] = useState(false);
+  const [incomeError, setIncomeError] = useState(false);
 
-  function handleSaveIncome() {
+  function openIncome() {
+    setIncomeError(false);
+    setIncomeForm({ ...defaultIncomeForm(), category: incomeCategories[0]?.name ?? "" });
+    setIncomeOpen(true);
+  }
+
+  async function handleSaveIncome() {
     if (!incomeForm.date || !incomeForm.source || !incomeForm.amount) return;
     setSavingIncome(true);
-    setTimeout(() => {
-      addIncome({
-        date: incomeForm.date, source: incomeForm.source, category: incomeForm.category,
-        amount: parseFloat(incomeForm.amount), notes: incomeForm.notes || undefined,
+    setIncomeError(false);
+    try {
+      const created = await createIncomeAction({
+        date: incomeForm.date,
+        source: incomeForm.source,
+        category: incomeForm.category || incomeCategories[0]?.name || "Other",
+        amount: parseFloat(incomeForm.amount),
+        notes: incomeForm.notes || null,
       });
+      addIncome(created);
       setIncomeForm(defaultIncomeForm());
-      setSavingIncome(false);
       setIncomeOpen(false);
-    }, 400);
+    } catch {
+      setIncomeError(true);
+    } finally {
+      setSavingIncome(false);
+    }
   }
 
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [expenseForm, setExpenseForm] = useState(defaultExpenseForm);
   const [savingExpense, setSavingExpense] = useState(false);
+  const [expenseError, setExpenseError] = useState(false);
 
-  function handleSaveExpense() {
+  function openExpense() {
+    setExpenseError(false);
+    setExpenseForm({ ...defaultExpenseForm(), category: expenseCategories[0]?.name ?? "" });
+    setExpenseOpen(true);
+  }
+
+  async function handleSaveExpense() {
     if (!expenseForm.date || !expenseForm.description || !expenseForm.amount) return;
     setSavingExpense(true);
-    setTimeout(() => {
-      addExpense({
-        date: expenseForm.date, description: expenseForm.description, category: expenseForm.category,
-        amount: parseFloat(expenseForm.amount), status: expenseForm.status,
+    setExpenseError(false);
+    try {
+      const created = await createExpenseAction({
+        date: expenseForm.date,
+        description: expenseForm.description,
+        category: expenseForm.category || expenseCategories[0]?.name || "Other",
+        amount: parseFloat(expenseForm.amount),
+        status: expenseForm.status,
       });
+      addExpense(created);
       setExpenseForm(defaultExpenseForm());
-      setSavingExpense(false);
       setExpenseOpen(false);
-    }, 400);
+    } catch {
+      setExpenseError(true);
+    } finally {
+      setSavingExpense(false);
+    }
   }
 
   const currency = prefs.currency;
+
+  if (!hydrated) return <PageLoading />;
 
   return (
     <>
@@ -142,7 +177,7 @@ export default function DashboardPage() {
             <Button
               size="sm"
               className="gap-1.5 cursor-pointer bg-income hover:bg-income/90 text-white"
-              onClick={() => setIncomeOpen(true)}
+              onClick={openIncome}
             >
               <Plus className="h-4 w-4" />
               {t("addIncome")}
@@ -151,7 +186,7 @@ export default function DashboardPage() {
               size="sm"
               variant="destructive"
               className="gap-1.5 cursor-pointer"
-              onClick={() => setExpenseOpen(true)}
+              onClick={openExpense}
             >
               <Plus className="h-4 w-4" />
               {t("addExpense")}
@@ -287,7 +322,7 @@ export default function DashboardPage() {
               value={incomeForm.category}
               onChange={(e) => setIncomeForm((f) => ({ ...f, category: e.target.value as IncomeCategoryName }))}
             >
-              {INCOME_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              {incomeCategories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
@@ -295,6 +330,7 @@ export default function DashboardPage() {
             <Input placeholder={t("notesPlaceholder")} value={incomeForm.notes}
               onChange={(e) => setIncomeForm((f) => ({ ...f, notes: e.target.value }))} />
           </div>
+          {incomeError && <p className="text-sm text-destructive">{tc("errorGeneric")}</p>}
         </div>
       </AddEditDialog>
 
@@ -334,7 +370,7 @@ export default function DashboardPage() {
                 value={expenseForm.category}
                 onChange={(e) => setExpenseForm((f) => ({ ...f, category: e.target.value as ExpenseCategoryName }))}
               >
-                {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                {expenseCategories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
@@ -349,6 +385,7 @@ export default function DashboardPage() {
               </select>
             </div>
           </div>
+          {expenseError && <p className="text-sm text-destructive">{tc("errorGeneric")}</p>}
         </div>
       </AddEditDialog>
     </>

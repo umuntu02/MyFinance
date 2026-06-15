@@ -21,7 +21,8 @@
     "dark": "Sombre",
     "system": "Système",
     "optional": "optionnel",
-    "logout": "Déconnexion"
+    "logout": "Déconnexion",
+    "errorGeneric": "Une erreur s'est produite. Veuillez réessayer."
   },
   "sidebar": {
     "overview": "APERÇU",
@@ -176,7 +177,18 @@
     "incomeByCategory": "Revenus par catégorie",
     "expensesByCategory": "Dépenses par catégorie",
     "noIncomeData": "Aucune donnée de revenu.",
-    "noExpenseData": "Aucune donnée de dépense."
+    "noExpenseData": "Aucune donnée de dépense.",
+    "addCategory": "Ajouter",
+    "addIncomeCategory": "Ajouter une catégorie de revenu",
+    "addExpenseCategory": "Ajouter une catégorie de dépense",
+    "addCategoryDesc": "Créez une nouvelle catégorie pour organiser vos transactions.",
+    "categoryName": "Nom de la catégorie",
+    "categoryNamePlaceholder": "ex. Abonnements",
+    "categoryIcon": "Icône",
+    "create": "Ajouter la catégorie",
+    "deleteCategory": "Supprimer la catégorie",
+    "noCategories": "Aucune catégorie pour le moment.",
+    "duplicateError": "Une catégorie portant ce nom existe déjà."
   },
   "settings": {
     "title": "Paramètres",

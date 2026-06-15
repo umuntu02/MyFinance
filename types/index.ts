@@ -3,12 +3,17 @@ import type { ElementType } from "react";
 export type Language = "en" | "fr" | "es" | "it" | "zh" | "ja" | "hi" | "sw" | "ki" ;
 export type Currency = "USD" | "EUR" | "GBP" | "JPY" | "CNY" | "INR" | "KES" | "UGX" | "TZS" | "RWF" | "BIF" | "SSP" | "GHS" | "XAF" | "XOF" | "XPF";
 
+// Category names. The listed values are the per-user defaults (seeded at
+// sign-up); `(string & {})` keeps autocompletion for them while allowing any
+// user-created category name. This is why selectors.ts compiles untouched even
+// though categories are now user-defined strings loaded from the database.
 export type IncomeCategoryName =
   | "Salary"
   | "Freelance"
   | "Investment"
   | "Bonus"
-  | "Other";
+  | "Other"
+  | (string & {});
 
 export type ExpenseCategoryName =
   | "Housing"
@@ -18,7 +23,19 @@ export type ExpenseCategoryName =
   | "Entertainment"
   | "Healthcare"
   | "Shopping"
-  | "Other";
+  | "Other"
+  | (string & {});
+
+// A user-owned category row (income or expense), loaded from the database.
+export type CategoryKind = "income" | "expense";
+
+export type Category = {
+  id: string;
+  name: string;
+  icon: string; // lucide icon name (string, serialisable)
+  type: CategoryKind;
+  isDefault: boolean;
+};
 
 export type Income = {
   id: string;
@@ -71,6 +88,7 @@ export type UserPrefs = {
   logoUrl?: string;
   avatarUrl?: string;
   displayName: string;
+  monthlyBudget: number;
 };
 
 export type MonthlyBreakdown = {

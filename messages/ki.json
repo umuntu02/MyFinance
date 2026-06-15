@@ -21,7 +21,8 @@
     "dark": "Umwiza",
     "system": "Sisitemu",
     "optional": "si ngombwa",
-    "logout": "Log out"
+    "logout": "Log out",
+    "errorGeneric": "Something went wrong. Please try again."
   },
   "sidebar": {
     "overview": "INCAMAKE",
@@ -176,7 +177,18 @@
     "incomeByCategory": "Amafaranga Yinjira ku Ciciro",
     "expensesByCategory": "Amafaranga Asohoka ku Ciciro",
     "noIncomeData": "Nta makuru y'amafaranga yinjira.",
-    "noExpenseData": "Nta makuru y'amafaranga asohoka."
+    "noExpenseData": "Nta makuru y'amafaranga asohoka.",
+    "addCategory": "Add",
+    "addIncomeCategory": "Add Income Category",
+    "addExpenseCategory": "Add Expense Category",
+    "addCategoryDesc": "Create a new category to organize your transactions.",
+    "categoryName": "Category Name",
+    "categoryNamePlaceholder": "e.g. Subscriptions",
+    "categoryIcon": "Icon",
+    "create": "Add Category",
+    "deleteCategory": "Delete category",
+    "noCategories": "No categories yet.",
+    "duplicateError": "A category with this name already exists."
   },
   "settings": {
     "title": "Amagenamiterere",

@@ -153,4 +153,5 @@ export const DEFAULT_PREFS: UserPrefs = {
   language: "en",
   theme: "system",
   displayName: "Alex",
+  monthlyBudget: 3500,
 };

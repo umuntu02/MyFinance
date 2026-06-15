@@ -12,6 +12,7 @@ import {
 import { useTranslations } from "next-intl";
 import { useFinanceStore } from "@/store/useFinanceStore";
 import { PageHeader } from "@/components/shared/page-header";
+import { PageLoading } from "@/components/shared/page-loading";
 import { SectionCard } from "@/components/shared/section-card";
 import { Badge } from "@/components/ui/badge";
 import { DemoDataButton } from "@/components/settings/demo-data-button";
@@ -78,7 +79,8 @@ function SettingsSection({
 }
 
 export default function SettingsPage() {
-  const { prefs } = useFinanceStore();
+  const prefs = useFinanceStore((s) => s.prefs);
+  const hydrated = useFinanceStore((s) => s.hydrated);
   const t = useTranslations("settings");
   const tc = useTranslations("common");
 
@@ -86,6 +88,8 @@ export default function SettingsPage() {
   const currentThemeLabel =
     prefs.theme === "light" ? tc("light") :
     prefs.theme === "dark"  ? tc("dark")  : tc("system");
+
+  if (!hydrated) return <PageLoading cards={2} />;
 
   return (
     <>

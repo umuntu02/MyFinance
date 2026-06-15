@@ -21,7 +21,8 @@
     "dark": "Giza",
     "system": "Mfumo",
     "optional": "hiari",
-    "logout": "Log out"
+    "logout": "Log out",
+    "errorGeneric": "Something went wrong. Please try again."
   },
   "sidebar": {
     "overview": "MUHTASARI",
@@ -176,7 +177,18 @@
     "incomeByCategory": "Mapato kwa Kategoria",
     "expensesByCategory": "Matumizi kwa Kategoria",
     "noIncomeData": "Hakuna data ya mapato.",
-    "noExpenseData": "Hakuna data ya matumizi."
+    "noExpenseData": "Hakuna data ya matumizi.",
+    "addCategory": "Add",
+    "addIncomeCategory": "Add Income Category",
+    "addExpenseCategory": "Add Expense Category",
+    "addCategoryDesc": "Create a new category to organize your transactions.",
+    "categoryName": "Category Name",
+    "categoryNamePlaceholder": "e.g. Subscriptions",
+    "categoryIcon": "Icon",
+    "create": "Add Category",
+    "deleteCategory": "Delete category",
+    "noCategories": "No categories yet.",
+    "duplicateError": "A category with this name already exists."
   },
   "settings": {
     "title": "Mipangilio",

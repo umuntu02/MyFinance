@@ -1,7 +1,9 @@
+import { Trash2 } from "lucide-react";
 import type { Currency } from "@/types";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { getIcon } from "@/lib/icon-map";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 type CategoryRowProps = {
   icon: string;          // lucide icon name
@@ -12,6 +14,8 @@ type CategoryRowProps = {
   percentage?: number;   // share of total (0–100)
   iconBgClassName?: string;
   className?: string;
+  onDelete?: () => void; // when set, renders a delete button (category management)
+  deleteLabel?: string;
 };
 
 export function CategoryRow({
@@ -23,6 +27,8 @@ export function CategoryRow({
   percentage,
   iconBgClassName,
   className,
+  onDelete,
+  deleteLabel = "Delete",
 }: CategoryRowProps) {
   const Icon = getIcon(icon);
 
@@ -59,6 +65,19 @@ export function CategoryRow({
           </p>
         )}
       </div>
+
+      {/* Delete (category management only) */}
+      {onDelete && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0 cursor-pointer text-muted-foreground hover:text-expense"
+          onClick={onDelete}
+          aria-label={deleteLabel}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      )}
     </div>
   );
 }

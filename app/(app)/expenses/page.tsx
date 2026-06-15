@@ -4,9 +4,15 @@ import { useMemo, useState } from "react";
 import { TrendingDown, Calendar, Wallet, Percent, Plus, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useFinanceStore } from "@/store/useFinanceStore";
+import {
+  createExpense as createExpenseAction,
+  updateExpense as updateExpenseAction,
+  deleteExpense as deleteExpenseAction,
+} from "@/app/actions/expenses";
 import { totalExpenses, thisMonthExpenses, monthlyAvg } from "@/lib/selectors";
 import { formatCurrency, formatDate, formatPercent } from "@/lib/format";
 import { PageHeader } from "@/components/shared/page-header";
+import { PageLoading } from "@/components/shared/page-loading";
 import { StatCard } from "@/components/shared/stat-card";
 import { DataTable, type TableColumn } from "@/components/shared/data-table";
 import { AddEditDialog } from "@/components/shared/add-edit-dialog";
@@ -15,27 +21,28 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import type { Expense, ExpenseCategoryName } from "@/types";
 
-const EXPENSE_CATEGORIES: ExpenseCategoryName[] = [
-  "Housing", "Food & Dining", "Transport", "Utilities",
-  "Entertainment", "Healthcare", "Shopping", "Other",
-];
-
-const MONTHLY_BUDGET = 3500;
-
 function emptyForm(): Omit<Expense, "id"> {
-  return { date: "", description: "", category: "Other", amount: 0, status: "Paid" };
+  return { date: "", description: "", category: "", amount: 0, status: "Paid" };
 }
 
 export default function ExpensesPage() {
-  const { expenses, incomes, prefs, addExpense, updateExpense, deleteExpense } = useFinanceStore();
+  const expenses = useFinanceStore((s) => s.expenses);
+  const incomes = useFinanceStore((s) => s.incomes);
+  const expenseCategories = useFinanceStore((s) => s.expenseCategories);
+  const prefs = useFinanceStore((s) => s.prefs);
+  const hydrated = useFinanceStore((s) => s.hydrated);
+  const addExpense = useFinanceStore((s) => s.addExpense);
+  const updateExpenseCache = useFinanceStore((s) => s.updateExpense);
+  const deleteExpenseCache = useFinanceStore((s) => s.deleteExpense);
   const currency = prefs.currency;
+  const monthlyBudget = prefs.monthlyBudget;
   const t  = useTranslations("expenses");
   const tc = useTranslations("common");
 
   const totalExp   = useMemo(() => totalExpenses(expenses), [expenses]);
   const thisMonth  = useMemo(() => thisMonthExpenses(expenses), [expenses]);
   const avgData    = useMemo(() => monthlyAvg(incomes, expenses), [incomes, expenses]);
-  const budgetUsed = MONTHLY_BUDGET > 0 ? (thisMonth / MONTHLY_BUDGET) * 100 : 0;
+  const budgetUsed = monthlyBudget > 0 ? (thisMonth / monthlyBudget) * 100 : 0;
 
   const [search, setSearch]         = useState("");
   const [filterDate, setFilterDate] = useState("");
@@ -58,31 +65,58 @@ export default function ExpensesPage() {
   const [editing, setEditing]       = useState<Expense | null>(null);
   const [form, setForm]             = useState<Omit<Expense, "id">>(emptyForm());
   const [isSaving, setIsSaving]     = useState(false);
+  const [error, setError]           = useState(false);
+
+  const fallbackCategory = expenseCategories[0]?.name ?? "Other";
 
   function openAdd() {
     setEditing(null);
-    setForm(emptyForm());
+    setError(false);
+    setForm({ ...emptyForm(), category: fallbackCategory });
     setDialogOpen(true);
   }
 
   function openEdit(row: Expense) {
     setEditing(row);
+    setError(false);
     setForm({ date: row.date, description: row.description, category: row.category, amount: row.amount, status: row.status });
     setDialogOpen(true);
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.date || !form.description || !form.amount) return;
     setIsSaving(true);
-    setTimeout(() => {
+    setError(false);
+    const payload = {
+      date: form.date,
+      description: form.description,
+      category: form.category || fallbackCategory,
+      amount: form.amount,
+      status: form.status,
+    };
+    try {
       if (editing) {
-        updateExpense(editing.id, form);
+        const updated = await updateExpenseAction(editing.id, payload);
+        updateExpenseCache(editing.id, updated);
       } else {
-        addExpense(form);
+        const created = await createExpenseAction(payload);
+        addExpense(created);
       }
-      setIsSaving(false);
       setDialogOpen(false);
-    }, 400);
+    } catch {
+      setError(true);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete(row: Expense) {
+    try {
+      await deleteExpenseAction(row.id);
+      deleteExpenseCache(row.id);
+    } catch {
+      // keep the row if the server rejected the delete
+    }
   }
 
   const columns: TableColumn<Expense>[] = [
@@ -131,6 +165,8 @@ export default function ExpensesPage() {
     },
   ];
 
+  if (!hydrated) return <PageLoading />;
+
   return (
     <>
       <PageHeader
@@ -160,7 +196,7 @@ export default function ExpensesPage() {
         />
         <StatCard
           label={t("monthlyBudget")}
-          value={formatCurrency(MONTHLY_BUDGET, currency)}
+          value={formatCurrency(monthlyBudget, currency)}
           icon={Wallet}
           iconClassName="bg-muted text-muted-foreground"
         />
@@ -201,7 +237,7 @@ export default function ExpensesPage() {
         data={filtered}
         keyExtractor={(r) => r.id}
         onEdit={openEdit}
-        onDelete={(r) => deleteExpense(r.id)}
+        onDelete={handleDelete}
         emptyText={t("noRecords")}
       />
 
@@ -241,7 +277,7 @@ export default function ExpensesPage() {
                 value={form.category}
                 onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as ExpenseCategoryName }))}
               >
-                {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                {expenseCategories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
@@ -256,6 +292,7 @@ export default function ExpensesPage() {
               </select>
             </div>
           </div>
+          {error && <p className="text-sm text-destructive">{tc("errorGeneric")}</p>}
         </div>
       </AddEditDialog>
     </>

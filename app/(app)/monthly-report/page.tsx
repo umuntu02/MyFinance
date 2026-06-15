@@ -14,6 +14,7 @@ import {
 } from "@/lib/selectors";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { PageHeader } from "@/components/shared/page-header";
+import { PageLoading } from "@/components/shared/page-loading";
 import { StatCard } from "@/components/shared/stat-card";
 import { SectionCard } from "@/components/shared/section-card";
 import { SavingsBarChart, type SavingsBarDatum } from "@/components/shared/charts/savings-bar-chart";
@@ -41,7 +42,10 @@ const EXPENSE_COLORS: Record<string, string> = {
 };
 
 export default function MonthlyReportPage() {
-  const { incomes, expenses, prefs } = useFinanceStore();
+  const incomes = useFinanceStore((s) => s.incomes);
+  const expenses = useFinanceStore((s) => s.expenses);
+  const prefs = useFinanceStore((s) => s.prefs);
+  const hydrated = useFinanceStore((s) => s.hydrated);
   const currency = prefs.currency;
   const t  = useTranslations("monthlyReport");
   const tc = useTranslations("common");
@@ -87,6 +91,8 @@ export default function MonthlyReportPage() {
   const tableHeaders = [
     t("month"), t("income"), t("expenses"), t("netSavings"), t("savingsRate"), tc("status"),
   ];
+
+  if (!hydrated) return <PageLoading />;
 
   return (
     <>

@@ -11,6 +11,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useFinanceStore } from "@/store/useFinanceStore";
+import { updatePrefs as updatePrefsAction } from "@/app/actions/prefs";
 import type { Language } from "@/types";
 import {
   ChevronDown,
@@ -23,7 +24,7 @@ import {
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 const PAGE_TITLE_KEYS: Record<string, string> = {
   "/dashboard": "dashboard",
@@ -58,12 +59,26 @@ export function Topbar() {
   const { theme, setTheme } = useTheme();
   const language = useFinanceStore((s) => s.prefs.language);
   const updatePrefs = useFinanceStore((s) => s.updatePrefs);
+  const [, startTransition] = useTransition();
 
   const t = useTranslations("topbar");
   const tc = useTranslations("common");
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // Update the cache instantly (UI re-renders in the new locale), then persist
+  // the choice to the database in the background.
+  function changeLanguage(next: Language) {
+    updatePrefs({ language: next });
+    startTransition(async () => {
+      try {
+        await updatePrefsAction({ language: next });
+      } catch {
+        // non-blocking: the cache already reflects the choice
+      }
+    });
+  }
 
   const titleKey = PAGE_TITLE_KEYS[pathname];
   const title = titleKey
@@ -103,7 +118,7 @@ export function Topbar() {
           <DropdownMenuContent align="end" className="w-40">
             <DropdownMenuRadioGroup
               value={language}
-              onValueChange={(v) => updatePrefs({ language: v as Language })}
+              onValueChange={(v) => changeLanguage(v as Language)}
             >
               {LANGUAGES.map((lang) => (
                 <DropdownMenuRadioItem

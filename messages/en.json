@@ -21,7 +21,8 @@
     "dark": "Dark",
     "system": "System",
     "optional": "optional",
-    "logout": "Log out"
+    "logout": "Log out",
+    "errorGeneric": "Something went wrong. Please try again."
   },
   "sidebar": {
     "overview": "OVERVIEW",
@@ -176,7 +177,18 @@
     "incomeByCategory": "Income by Category",
     "expensesByCategory": "Expenses by Category",
     "noIncomeData": "No income data.",
-    "noExpenseData": "No expense data."
+    "noExpenseData": "No expense data.",
+    "addCategory": "Add",
+    "addIncomeCategory": "Add Income Category",
+    "addExpenseCategory": "Add Expense Category",
+    "addCategoryDesc": "Create a new category to organize your transactions.",
+    "categoryName": "Category Name",
+    "categoryNamePlaceholder": "e.g. Subscriptions",
+    "categoryIcon": "Icon",
+    "create": "Add Category",
+    "deleteCategory": "Delete category",
+    "noCategories": "No categories yet.",
+    "duplicateError": "A category with this name already exists."
   },
   "settings": {
     "title": "Settings",

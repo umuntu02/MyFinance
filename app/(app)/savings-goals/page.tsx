@@ -4,8 +4,14 @@ import { useMemo, useState } from "react";
 import { Pencil, Trash2, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useFinanceStore } from "@/store/useFinanceStore";
+import {
+  createGoal as createGoalAction,
+  updateGoal as updateGoalAction,
+  deleteGoal as deleteGoalAction,
+} from "@/app/actions/goals";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { PageHeader } from "@/components/shared/page-header";
+import { PageLoading } from "@/components/shared/page-loading";
 import { ProgressBar } from "@/components/shared/progress-bar";
 import { AddEditDialog } from "@/components/shared/add-edit-dialog";
 import { Button } from "@/components/ui/button";
@@ -23,7 +29,12 @@ function emptyForm(): Omit<SavingsGoal, "id"> {
 }
 
 export default function SavingsGoalsPage() {
-  const { savingsGoals, prefs, addGoal, updateGoal, deleteGoal } = useFinanceStore();
+  const savingsGoals = useFinanceStore((s) => s.savingsGoals);
+  const prefs = useFinanceStore((s) => s.prefs);
+  const hydrated = useFinanceStore((s) => s.hydrated);
+  const addGoal = useFinanceStore((s) => s.addGoal);
+  const updateGoalCache = useFinanceStore((s) => s.updateGoal);
+  const deleteGoalCache = useFinanceStore((s) => s.deleteGoal);
   const currency = prefs.currency;
   const t  = useTranslations("savingsGoals");
   const tc = useTranslations("common");
@@ -38,32 +49,52 @@ export default function SavingsGoalsPage() {
   const [editing, setEditing]       = useState<SavingsGoal | null>(null);
   const [form, setForm]             = useState<Omit<SavingsGoal, "id">>(emptyForm());
   const [isSaving, setIsSaving]     = useState(false);
+  const [error, setError]           = useState(false);
 
   function openAdd() {
     setEditing(null);
+    setError(false);
     setForm(emptyForm());
     setDialogOpen(true);
   }
 
   function openEdit(goal: SavingsGoal) {
     setEditing(goal);
+    setError(false);
     setForm({ name: goal.name, icon: goal.icon, saved: goal.saved, target: goal.target, targetDate: goal.targetDate });
     setDialogOpen(true);
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.name || !form.target || !form.targetDate) return;
     setIsSaving(true);
-    setTimeout(() => {
+    setError(false);
+    try {
       if (editing) {
-        updateGoal(editing.id, form);
+        const updated = await updateGoalAction(editing.id, form);
+        updateGoalCache(editing.id, updated);
       } else {
-        addGoal(form);
+        const created = await createGoalAction(form);
+        addGoal(created);
       }
-      setIsSaving(false);
       setDialogOpen(false);
-    }, 400);
+    } catch {
+      setError(true);
+    } finally {
+      setIsSaving(false);
+    }
   }
+
+  async function handleDelete(id: string) {
+    try {
+      await deleteGoalAction(id);
+      deleteGoalCache(id);
+    } catch {
+      // keep the goal if the server rejected the delete
+    }
+  }
+
+  if (!hydrated) return <PageLoading cards={3} />;
 
   return (
     <>
@@ -119,7 +150,7 @@ export default function SavingsGoalsPage() {
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 cursor-pointer text-muted-foreground hover:text-expense"
-                      onClick={() => deleteGoal(goal.id)}
+                      onClick={() => handleDelete(goal.id)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -217,6 +248,7 @@ export default function SavingsGoalsPage() {
               {GOAL_ICONS.map((ic) => <option key={ic} value={ic}>{ic}</option>)}
             </select>
           </div>
+          {error && <p className="text-sm text-destructive">{tc("errorGeneric")}</p>}
         </div>
       </AddEditDialog>
     </>

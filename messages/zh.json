@@ -21,7 +21,8 @@
     "dark": "深色",
     "system": "系统",
     "optional": "可选",
-    "logout": "Log out"
+    "logout": "Log out",
+    "errorGeneric": "Something went wrong. Please try again."
   },
   "sidebar": {
     "overview": "概览",
@@ -176,7 +177,18 @@
     "incomeByCategory": "按类别统计收入",
     "expensesByCategory": "按类别统计支出",
     "noIncomeData": "暂无收入数据。",
-    "noExpenseData": "暂无支出数据。"
+    "noExpenseData": "暂无支出数据。",
+    "addCategory": "Add",
+    "addIncomeCategory": "Add Income Category",
+    "addExpenseCategory": "Add Expense Category",
+    "addCategoryDesc": "Create a new category to organize your transactions.",
+    "categoryName": "Category Name",
+    "categoryNamePlaceholder": "e.g. Subscriptions",
+    "categoryIcon": "Icon",
+    "create": "Add Category",
+    "deleteCategory": "Delete category",
+    "noCategories": "No categories yet.",
+    "duplicateError": "A category with this name already exists."
   },
   "settings": {
     "title": "设置",

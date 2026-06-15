@@ -21,7 +21,8 @@
     "dark": "Scuro",
     "system": "Sistema",
     "optional": "opzionale",
-    "logout": "Log out"
+    "logout": "Log out",
+    "errorGeneric": "Something went wrong. Please try again."
   },
   "sidebar": {
     "overview": "PANORAMICA",
@@ -176,7 +177,18 @@
     "incomeByCategory": "Entrate per Categoria",
     "expensesByCategory": "Spese per Categoria",
     "noIncomeData": "Nessun dato sulle entrate.",
-    "noExpenseData": "Nessun dato sulle spese."
+    "noExpenseData": "Nessun dato sulle spese.",
+    "addCategory": "Add",
+    "addIncomeCategory": "Add Income Category",
+    "addExpenseCategory": "Add Expense Category",
+    "addCategoryDesc": "Create a new category to organize your transactions.",
+    "categoryName": "Category Name",
+    "categoryNamePlaceholder": "e.g. Subscriptions",
+    "categoryIcon": "Icon",
+    "create": "Add Category",
+    "deleteCategory": "Delete category",
+    "noCategories": "No categories yet.",
+    "duplicateError": "A category with this name already exists."
   },
   "settings": {
     "title": "Impostazioni",

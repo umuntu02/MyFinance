@@ -3,7 +3,7 @@
 ## Stack
 - Next.js 16 App Router + TypeScript strict
 - Tailwind CSS v4 + shadcn/ui (radix-nova, cssVariables)
-- Zustand v5 + persist middleware (clé localStorage : `"myfinance"`)
+- Zustand v5 — **cache client uniquement** (le middleware `persist`/localStorage a été retiré en 6.3 ; la source de vérité est Postgres)
 - next-themes (defaultTheme system, attribute="class")
 - recharts
 - lucide-react
@@ -20,7 +20,7 @@
 - [~] Étape 6 — Migration multi-utilisateurs (localStorage → PostgreSQL + Prisma + Better Auth)
   - [x] 6.1 — Base de données (Prisma + Postgres : schéma, migration `init`, client) — cf. section « Base de données »
   - [x] 6.2 — Better Auth (email+password, /login + /register, proxy de protection, seed catégories + prefs par utilisateur) — cf. section « Auth »
-  - [ ] 6.3 — Migration des pages + remplacement du store Zustand par la DB
+  - [x] 6.3 — Migration des pages : Server Actions CRUD par-utilisateur, hydratation du cache Zustand depuis le serveur, suppression de `persist`, catégories custom — cf. section « Données par-utilisateur »
 
 ## Carte des fichiers
 
@@ -46,7 +46,7 @@
 | `lib/seed.ts` | Données de démarrage réalistes (18 revenus, ~98 dépenses, 4 objectifs) |
 | `lib/selectors.ts` | Fonctions pures de calcul (totalIncome, netSavings, monthlyBreakdown…) |
 | `lib/format.ts` | formatCurrency, formatDate |
-| `store/useFinanceStore.ts` | Store Zustand principal (incomes, expenses, savingsGoals, prefs) + CRUD + resetToSeed |
+| `store/useFinanceStore.ts` | Store Zustand = **cache client** (incomes, expenses, savingsGoals, **incomeCategories**, **expenseCategories**, prefs, **`hydrated`**) + `hydrate()` + mutateurs de cache. Plus de `persist`, plus de seed initial (démarre vide) |
 | `types/index.ts` | Types TS : Income, Expense, SavingsGoal, IncomeCategory, ExpenseCategory, UserPrefs, MonthlyBreakdown, ChartDataPoint, NavItem… |
 | `lib/icon-map.ts` | Mapping string→ElementType pour les icônes lucide (catégories, objectifs) |
 | `components/shared/stat-card.tsx` | Carte KPI : label + valeur + icône + badge optionnel (positive/negative/neutral) |
@@ -83,10 +83,18 @@
 | `components/auth/register-form.tsx` | Formulaire client inscription (`signUp.email`) |
 | `components/layout/user-menu.tsx` | Footer sidebar : utilisateur connecté (`useSession`) + Logout |
 | `components/settings/demo-data-button.tsx` | Bouton client « Charger des données de démo » (appelle la server action) |
-| `app/(app)/settings/actions.ts` | Server action `loadDemoDataAction` : re-vérifie la session puis seed démo |
+| `app/(app)/settings/actions.ts` | Server action `loadDemoDataAction` : re-vérifie la session, seed démo, **retourne le snapshot frais** (le bouton ré-hydrate le cache) |
+| `lib/data.ts` | **`getUserData()`** (Server) : dérive le `userId` de la session, charge toutes les entités de l'utilisateur via Prisma, renvoie un `FinanceSnapshot` sérialisé. Point d'entrée unique, appelé une fois dans `app/(app)/layout.tsx` |
+| `lib/serialize.ts` | Sérialiseurs purs de la frontière API : `Decimal`→`number`, `Date`→`"YYYY-MM-DD"`. Partagés par `lib/data.ts` (bulk) et les Server Actions (ligne unique) |
+| `app/actions/_session.ts` | `requireUserId()` : session Better Auth → `userId` (throw si non authentifié). Appelé par chaque action |
+| `app/actions/{incomes,expenses,goals,categories,prefs}.ts` | Server Actions CRUD, **validation zod**, scoping strict par `userId` (`updateMany`/`deleteMany {id,userId}`), retournent l'entité sérialisée (ou `{ok}`) |
+| `components/providers/store-hydrator.tsx` | Client : hydrate le cache Zustand depuis les données serveur dans un `useEffect` (jamais au rendu : store partagé côté serveur + parité SSR/1er rendu client) |
+| `components/shared/page-loading.tsx` | Skeleton générique affiché tant que `!hydrated` (header + stat cards + contenu) |
 
 ## Conventions clés
-- Aucun composant ne lit localStorage directement : tout passe par `useFinanceStore`
+- Aucun composant ne lit localStorage directement (toujours vrai). **La source a changé : Zustand-persist → serveur (Postgres).** Seul next-themes garde son propre localStorage pour le thème (autorisé).
+- **Écritures = Server Actions** (`app/actions/*`) ; le store n'est plus qu'un cache rafraîchi avec la valeur retournée par l'action. `userId` toujours dérivé de la session, jamais du client.
+- Catégories income/expense = lues depuis la DB (`incomeCategories`/`expenseCategories` du store), plus de liste codée en dur dans les selects/dialogs.
 - Tokens couleur dans `globals.css` (vars CSS oklch, clair + sombre)
 - Chiffres de référence (seed) : revenus 6 mois = $39 590, dépenses = $15 855, net = $23 735, savings rate ≈ 60%
   - Breakdown par mois : Oct $6 500/$2 605 | Nov $6 350/$2 850 | Déc $6 630/$2 640 | Jan $6 800/$2 705 | Fév $6 770/$2 650 | Mar $6 540/$2 405
@@ -229,3 +237,48 @@ Ajoutés **uniquement si** les credentials existent dans `.env` (`GOOGLE_CLIENT_
 
 ### Fichiers ajoutés (6.2)
 `lib/auth.ts`, `lib/auth-client.ts`, `lib/user-seed.ts`, `app/api/auth/[...all]/route.ts`, `proxy.ts`, `app/(auth)/layout.tsx`, `app/(auth)/{login,register}/page.tsx`, `components/auth/{auth-card,login-form,register-form}.tsx`, `components/layout/user-menu.tsx`, `components/settings/demo-data-button.tsx`, `app/(app)/settings/actions.ts`, `prisma/migrations/20260615041411_better_auth/`. Modifiés : `prisma/schema.prisma`, `app/(app)/settings/page.tsx`, `components/layout/sidebar.tsx`, `messages/*.json` (namespaces `login`/`register` + clés `common.logout`, `settings.demo*`), `.env`, `.env.example`, `package.json` (dép. `better-auth`).
+
+## Données par-utilisateur (étape 6.3)
+
+Remplacement de localStorage (Zustand-persist) par des **données serveur PAR UTILISATEUR**, sans casser le design, les selectors ni l'i18n. Approche **la moins destructive** : Zustand reste, mais devient un **cache client** ; la source de vérité est Postgres ; `lib/selectors.ts` est **inchangé** (fonctions pures, on leur passe les données chargées).
+
+### Nouveau flux de données (pattern réutilisable)
+1. **Chargement initial (Server Component)** — `app/(app)/layout.tsx` est `async` et appelle **`getUserData()`** (`lib/data.ts`) une seule fois par requête : session Better Auth → `userId` → charge incomes/expenses/goals/categories/prefs via Prisma → renvoie un `FinanceSnapshot` **sérialisé** (`Decimal`→`number`, `Date`→`"YYYY-MM-DD"`, cf. `lib/serialize.ts`). Les pages n'interrogent jamais Prisma directement.
+2. **Hydratation du cache** — le snapshot est passé à **`StoreHydrator`** (client), qui appelle `useFinanceStore.hydrate(data)` dans un **`useEffect`** (jamais au rendu : le store module-level est partagé entre requêtes côté serveur, et le 1er rendu client doit matcher le SSR). `hydrated` passe à `true`.
+3. **Écritures** — chaque page/dialog appelle une **Server Action** (`app/actions/*`) qui valide (zod), dérive le `userId` de la session, mute uniquement les lignes de cet utilisateur (`updateMany`/`deleteMany` sur `{id, userId}`), et **retourne l'entité sérialisée**. Le handler met ensuite à jour le **cache Zustand** avec la valeur retournée (add/update/delete). Pas de `revalidatePath` : la source rafraîchie est le cache client (un revalidate écraserait l'état optimiste et le layout ne re-tourne pas en navigation client de toute façon). Un rechargement complet re-passe par `getUserData` → état frais.
+4. **États loading/erreur** — tant que `!hydrated`, chaque page rend `<PageLoading />` (skeleton). Les handlers de dialog gèrent `isSaving` + un message d'erreur (`common.errorGeneric`) en cas d'échec d'action.
+
+### Server Actions (`app/actions/`)
+| Fichier | Actions | Notes |
+|---|---|---|
+| `_session.ts` | `requireUserId()` | session → userId, throw si absent |
+| `incomes.ts` | `createIncome` / `updateIncome` / `deleteIncome` | zod `{date,source,category,amount,notes?}` |
+| `expenses.ts` | `createExpense` / `updateExpense` / `deleteExpense` | zod + `status` enum Paid/Pending |
+| `goals.ts` | `createGoal` / `updateGoal` / `deleteGoal` | zod `{name,icon,saved,target>0,targetDate}` |
+| `categories.ts` | `createCategory` / `deleteCategory` | rejette les doublons (`@@unique[userId,type,name]`) |
+| `prefs.ts` | `updatePrefs` | partial, `upsert` UserPrefs |
+
+### Catégories custom (demande explicite)
+- Ajout **et** suppression de catégories income **et** expense par l'utilisateur, dans la page **Categories** (bouton « Ajouter » par carte + icône poubelle par ligne, via `CategoryRow.onDelete`). Sélecteur d'icône (liste alignée sur `lib/icon-map.ts`).
+- Les `<select>` de catégorie des dialogs Income/Expense (pages Income, Expenses, Dashboard) lisent désormais `incomeCategories`/`expenseCategories` **depuis la DB**, plus de liste codée en dur.
+- Supprimer une catégorie n'orpheline pas les données : `category` reste une String sur les transactions existantes. Les types `IncomeCategoryName`/`ExpenseCategoryName` ont reçu `| (string & {})` → catégories arbitraires acceptées **sans toucher `selectors.ts`**.
+- `prefs.monthlyBudget` (DB) **remplace** le `MONTHLY_BUDGET` codé en dur ($3 500) de la page Expenses.
+
+### Suppression de localStorage
+- `persist` retiré de `store/useFinanceStore.ts` (la clé `"myfinance"` n'est plus écrite). Le store démarre **vide** + `hydrated:false`.
+- Vérifié : `grep localStorage` ne renvoie **aucune** lecture/écriture applicative ; seul next-themes conserve la sienne pour le thème (autorisé).
+
+### Hydration / SSR
+- 1er rendu (SSR + 1er rendu client) : store vide → skeletons **identiques** des deux côtés → pas de mismatch. Après montage, l'effet hydrate et bascule sur les vraies données + la langue DB (le guard `mounted` de `i18n-provider` couvre déjà la transition `en`→langue).
+
+### Vérifié
+- `tsc --noEmit` clean ; `next build` OK (7 pages `(app)` → `ƒ` dynamiques car session, Proxy actif).
+- Smoke-test runtime (dev) : `/login` 200 ; `/dashboard` sans cookie → 307 `/login` ; sign-up → hook seed (catégories+prefs) ; les **7 pages** renvoient 200 avec session (sérialisation `Decimal`/`Date` OK, aucun log d'erreur). Utilisateur de test supprimé après coup.
+
+### Écarts résiduels (hors périmètre 6.3)
+- Page **Settings** : currency / displayName / logo / avatar restent des placeholders (logique = étape 5) ; seule la langue est éditable (topbar) et persistée. Le **thème** reste géré par next-themes et n'est pas (re)synchronisé vers `prefs.theme` en DB.
+- Dashboard : bouton « Date Range » toujours décoratif ; badges KPI (`+12.5%`/`-3.2%`) toujours statiques (maquette).
+- Backup/restore, date-picker : étape 5.
+
+### Fichiers (6.3)
+Ajoutés : `lib/data.ts`, `lib/serialize.ts`, `app/actions/{_session,incomes,expenses,goals,categories,prefs}.ts`, `components/providers/store-hydrator.tsx`, `components/shared/page-loading.tsx`. Modifiés : `store/useFinanceStore.ts`, `types/index.ts`, `lib/seed.ts` (DEFAULT_PREFS.monthlyBudget), `app/(app)/layout.tsx`, les **7 pages** `app/(app)/*/page.tsx`, `app/(app)/settings/actions.ts`, `components/settings/demo-data-button.tsx`, `components/shared/category-row.tsx`, `components/layout/topbar.tsx`, `messages/*.json` (clés `categories.*` de gestion + `common.errorGeneric`).

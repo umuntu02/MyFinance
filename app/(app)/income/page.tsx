@@ -4,9 +4,15 @@ import { useMemo, useState } from "react";
 import { TrendingUp, Calendar, Hash, BarChart2, Plus, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useFinanceStore } from "@/store/useFinanceStore";
+import {
+  createIncome as createIncomeAction,
+  updateIncome as updateIncomeAction,
+  deleteIncome as deleteIncomeAction,
+} from "@/app/actions/incomes";
 import { totalIncome, thisMonthIncome, monthlyAvg } from "@/lib/selectors";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { PageHeader } from "@/components/shared/page-header";
+import { PageLoading } from "@/components/shared/page-loading";
 import { StatCard } from "@/components/shared/stat-card";
 import { DataTable, type TableColumn } from "@/components/shared/data-table";
 import { AddEditDialog } from "@/components/shared/add-edit-dialog";
@@ -15,11 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import type { Income, IncomeCategoryName } from "@/types";
 
-const INCOME_CATEGORIES: IncomeCategoryName[] = [
-  "Salary", "Freelance", "Investment", "Bonus", "Other",
-];
-
-const CATEGORY_COLORS: Record<IncomeCategoryName, string> = {
+const CATEGORY_COLORS: Record<string, string> = {
   Salary:     "bg-income/10 text-income",
   Freelance:  "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   Investment: "bg-brand-gold/10 text-brand-gold",
@@ -28,11 +30,17 @@ const CATEGORY_COLORS: Record<IncomeCategoryName, string> = {
 };
 
 function emptyForm(): Omit<Income, "id"> {
-  return { date: "", source: "", category: "Salary", amount: 0, notes: "" };
+  return { date: "", source: "", category: "", amount: 0, notes: "" };
 }
 
 export default function IncomePage() {
-  const { incomes, prefs, addIncome, updateIncome, deleteIncome } = useFinanceStore();
+  const incomes = useFinanceStore((s) => s.incomes);
+  const incomeCategories = useFinanceStore((s) => s.incomeCategories);
+  const prefs = useFinanceStore((s) => s.prefs);
+  const hydrated = useFinanceStore((s) => s.hydrated);
+  const addIncome = useFinanceStore((s) => s.addIncome);
+  const updateIncomeCache = useFinanceStore((s) => s.updateIncome);
+  const deleteIncomeCache = useFinanceStore((s) => s.deleteIncome);
   const currency = prefs.currency;
   const t  = useTranslations("income");
   const tc = useTranslations("common");
@@ -63,31 +71,58 @@ export default function IncomePage() {
   const [editing, setEditing]       = useState<Income | null>(null);
   const [form, setForm]             = useState<Omit<Income, "id">>(emptyForm());
   const [isSaving, setIsSaving]     = useState(false);
+  const [error, setError]           = useState(false);
+
+  const fallbackCategory = incomeCategories[0]?.name ?? "Other";
 
   function openAdd() {
     setEditing(null);
-    setForm(emptyForm());
+    setError(false);
+    setForm({ ...emptyForm(), category: fallbackCategory });
     setDialogOpen(true);
   }
 
   function openEdit(row: Income) {
     setEditing(row);
+    setError(false);
     setForm({ date: row.date, source: row.source, category: row.category, amount: row.amount, notes: row.notes ?? "" });
     setDialogOpen(true);
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.date || !form.source || !form.amount) return;
     setIsSaving(true);
-    setTimeout(() => {
+    setError(false);
+    const payload = {
+      date: form.date,
+      source: form.source,
+      category: form.category || fallbackCategory,
+      amount: form.amount,
+      notes: form.notes || null,
+    };
+    try {
       if (editing) {
-        updateIncome(editing.id, form);
+        const updated = await updateIncomeAction(editing.id, payload);
+        updateIncomeCache(editing.id, updated);
       } else {
-        addIncome(form);
+        const created = await createIncomeAction(payload);
+        addIncome(created);
       }
-      setIsSaving(false);
       setDialogOpen(false);
-    }, 400);
+    } catch {
+      setError(true);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete(row: Income) {
+    try {
+      await deleteIncomeAction(row.id);
+      deleteIncomeCache(row.id);
+    } catch {
+      // keep the row if the server rejected the delete
+    }
   }
 
   const columns: TableColumn<Income>[] = [
@@ -110,7 +145,7 @@ export default function IncomePage() {
       id: "category",
       header: t("colCategory"),
       cell: (row) => (
-        <Badge className={`text-xs font-medium border-0 ${CATEGORY_COLORS[row.category]}`}>
+        <Badge className={`text-xs font-medium border-0 ${CATEGORY_COLORS[row.category] ?? "bg-muted text-muted-foreground"}`}>
           {row.category}
         </Badge>
       ),
@@ -132,6 +167,8 @@ export default function IncomePage() {
       ),
     },
   ];
+
+  if (!hydrated) return <PageLoading />;
 
   return (
     <>
@@ -199,7 +236,7 @@ export default function IncomePage() {
         data={filtered}
         keyExtractor={(r) => r.id}
         onEdit={openEdit}
-        onDelete={(r) => deleteIncome(r.id)}
+        onDelete={handleDelete}
         emptyText={t("noRecords")}
       />
 
@@ -238,7 +275,7 @@ export default function IncomePage() {
               value={form.category}
               onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as IncomeCategoryName }))}
             >
-              {INCOME_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              {incomeCategories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
@@ -246,6 +283,7 @@ export default function IncomePage() {
             <Input placeholder={t("notesPlaceholder")} value={form.notes ?? ""}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
           </div>
+          {error && <p className="text-sm text-destructive">{tc("errorGeneric")}</p>}
         </div>
       </AddEditDialog>
     </>

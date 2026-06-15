@@ -21,7 +21,8 @@
     "dark": "ダーク",
     "system": "システム",
     "optional": "任意",
-    "logout": "Log out"
+    "logout": "Log out",
+    "errorGeneric": "Something went wrong. Please try again."
   },
   "sidebar": {
     "overview": "概要",
@@ -176,7 +177,18 @@
     "incomeByCategory": "カテゴリ別収入",
     "expensesByCategory": "カテゴリ別支出",
     "noIncomeData": "収入データがありません。",
-    "noExpenseData": "支出データがありません。"
+    "noExpenseData": "支出データがありません。",
+    "addCategory": "Add",
+    "addIncomeCategory": "Add Income Category",
+    "addExpenseCategory": "Add Expense Category",
+    "addCategoryDesc": "Create a new category to organize your transactions.",
+    "categoryName": "Category Name",
+    "categoryNamePlaceholder": "e.g. Subscriptions",
+    "categoryIcon": "Icon",
+    "create": "Add Category",
+    "deleteCategory": "Delete category",
+    "noCategories": "No categories yet.",
+    "duplicateError": "A category with this name already exists."
   },
   "settings": {
     "title": "設定",
