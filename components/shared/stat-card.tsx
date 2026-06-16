@@ -1,14 +1,22 @@
 import type { ElementType } from "react";
 import { cn } from "@/lib/utils";
 
-type BadgeVariant = "positive" | "negative" | "neutral";
+export type BadgeVariant = "positive" | "negative" | "neutral";
+
+// A stat-card badge: short text, a colour variant, and an optional leading icon
+// (e.g. an up/down arrow for a month-over-month variation).
+export type StatCardBadge = {
+  text: string;
+  variant?: BadgeVariant;
+  icon?: ElementType;
+};
 
 type StatCardProps = {
   label: string;
   value: string;
   icon: ElementType;
   iconClassName?: string;
-  badge?: { text: string; variant?: BadgeVariant };
+  badge?: StatCardBadge;
   className?: string;
 };
 
@@ -56,10 +64,11 @@ export function StatCard({
         {badge && (
           <span
             className={cn(
-              "text-xs font-semibold px-2 py-0.5 rounded-full shrink-0",
+              "inline-flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full shrink-0",
               BADGE_STYLES[badgeVariant]
             )}
           >
+            {badge.icon && <badge.icon className="h-3 w-3" />}
             {badge.text}
           </span>
         )}

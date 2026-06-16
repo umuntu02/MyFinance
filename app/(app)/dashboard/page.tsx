@@ -9,6 +9,8 @@ import {
   Plus,
   CalendarRange,
   ChevronDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useFinanceStore } from "@/store/useFinanceStore";
@@ -28,11 +30,13 @@ import {
   savingsRate,
   incomeVsExpensesSeries,
   expenseByCategory,
+  monthOverMonthChange,
+  avgSavingsRate,
 } from "@/lib/selectors";
 import { formatCurrency, formatDate, formatPercent } from "@/lib/format";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageLoading } from "@/components/shared/page-loading";
-import { StatCard } from "@/components/shared/stat-card";
+import { StatCard, type StatCardBadge } from "@/components/shared/stat-card";
 import { SectionCard } from "@/components/shared/section-card";
 import { ProgressBar } from "@/components/shared/progress-bar";
 import { IncomeVsExpensesChart } from "@/components/shared/charts/income-vs-expenses-chart";
@@ -101,6 +105,22 @@ function defaultExpenseForm() {
   };
 }
 
+// Build a month-over-month variation badge from a (possibly null) percentage.
+// `goodWhenUp` flips the colour semantics: a rise in income is good (green), a
+// rise in expenses is bad (red). A null change (no comparable previous month)
+// yields a neutral "—" — never a fabricated percentage. The arrow always points
+// in the real direction of change; only the colour encodes good/bad.
+function variationBadge(change: number | null, goodWhenUp: boolean): StatCardBadge {
+  if (change === null) return { text: "—", variant: "neutral" };
+  const up = change >= 0;
+  const good = goodWhenUp ? up : !up;
+  return {
+    text: formatPercent(Math.abs(change)),
+    variant: good ? "positive" : "negative",
+    icon: up ? ArrowUp : ArrowDown,
+  };
+}
+
 export default function DashboardPage() {
   const incomes = useFinanceStore((s) => s.incomes);
   const expenses = useFinanceStore((s) => s.expenses);
@@ -132,6 +152,17 @@ export default function DashboardPage() {
   const exp  = useMemo(() => totalExpenses(expensesF), [expensesF]);
   const net  = useMemo(() => netSavings(incomesF, expensesF), [incomesF, expensesF]);
   const rate = useMemo(() => savingsRate(incomesF, expensesF), [incomesF, expensesF]);
+
+  // KPI variation badges — computed from the (range-filtered) user data, never
+  // hard-coded. Income: month-over-month %, green when up. Expenses: same %, but
+  // a rise is bad → red. Savings rate: real average over the last 6 months.
+  const incomeBadge  = useMemo(() => variationBadge(monthOverMonthChange(incomesF), true), [incomesF]);
+  const expenseBadge = useMemo(() => variationBadge(monthOverMonthChange(expensesF), false), [expensesF]);
+  const avg6 = useMemo(() => avgSavingsRate(incomesF, expensesF, 6), [incomesF, expensesF]);
+  const rateBadge: StatCardBadge =
+    avg6 === null
+      ? { text: t("sixMonthAvg"), variant: "neutral" }
+      : { text: `${t("sixMonthAvg")} ${formatPercent(avg6)}`, variant: "neutral" };
 
   const chartData = useMemo(
     () =>
@@ -287,14 +318,14 @@ export default function DashboardPage() {
           value={formatCurrency(inc, currency)}
           icon={TrendingUp}
           iconClassName="bg-income/10 text-income"
-          badge={{ text: "+12.5%", variant: "positive" }}
+          badge={incomeBadge}
         />
         <StatCard
           label={t("totalExpenses")}
           value={formatCurrency(exp, currency)}
           icon={TrendingDown}
           iconClassName="bg-expense/10 text-expense"
-          badge={{ text: "-3.2%", variant: "negative" }}
+          badge={expenseBadge}
         />
         <StatCard
           label={t("netSavings")}
@@ -308,7 +339,7 @@ export default function DashboardPage() {
           value={formatPercent(rate)}
           icon={Percent}
           iconClassName="bg-muted text-muted-foreground"
-          badge={{ text: t("sixMonthAvg"), variant: "neutral" }}
+          badge={rateBadge}
         />
       </div>
 

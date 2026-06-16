@@ -286,7 +286,7 @@ Remplacement de localStorage (Zustand-persist) par des **données serveur PAR UT
 - ✅ **Thème** : `prefs.theme` est la source de vérité (BDD) ; `ThemeSync` aligne next-themes à l'hydratation et après restore. (next-themes garde sa propre clé localStorage pour le no-flash SSR — autorisé.)
 - ✅ Dashboard : « Date Range » fonctionnel ; toggle mois/année sur le graphe.
 - ✅ Backup/restore + reset implémentés (JSON + PDF).
-- **Restant (cosmétique, maquette)** : badges KPI du Dashboard (`+12.5%`/`-3.2%`) toujours statiques. Email-verification Better Auth non activée (hors périmètre).
+- ✅ **Badges KPI du Dashboard** (`+12.5%`/`-3.2%`) : désormais **dynamiques** (calculés depuis les vraies données) — cf. section « Corrections Dashboard & Export (post-6.3) ». **Restant (hors périmètre)** : email-verification Better Auth non activée.
 
 ### Fichiers (6.3)
 Ajoutés : `lib/data.ts`, `lib/serialize.ts`, `app/actions/{_session,incomes,expenses,goals,categories,prefs}.ts`, `components/providers/store-hydrator.tsx`, `components/shared/page-loading.tsx`. Modifiés : `store/useFinanceStore.ts`, `types/index.ts`, `lib/seed.ts` (DEFAULT_PREFS.monthlyBudget), `app/(app)/layout.tsx`, les **7 pages** `app/(app)/*/page.tsx`, `app/(app)/settings/actions.ts`, `components/settings/demo-data-button.tsx`, `components/shared/category-row.tsx`, `components/layout/topbar.tsx`, `messages/*.json` (clés `categories.*` de gestion + `common.errorGeneric`).
@@ -330,3 +330,42 @@ Finalisation des points restants de l'étape 5 une fois la BDD en place. Tout re
 
 ### Fichiers (étape 5)
 Ajoutés : `app/actions/backup.ts`, `lib/csv.ts`, `lib/pdf-report.ts`, `hooks/use-prefs.ts`, `components/providers/theme-sync.tsx`, `components/settings/backup-restore.tsx`. Modifiés : `app/(app)/settings/page.tsx` (réécriture fonctionnelle), `app/(app)/dashboard/page.tsx` (date range + toggle), `app/(app)/monthly-report/page.tsx` (CSV partagé), `app/(app)/layout.tsx` (ThemeSync), `components/layout/topbar.tsx` (export CSV), `lib/selectors.ts` (granularité), `lib/user-seed.ts` (`resetUserToDefaults` + export des listes par défaut), `messages/*.json` (clés `dashboard.range*`/`byMonth`/`byYear` + `settings.*` backup/budget), `package.json` (jspdf).
+
+## Corrections Dashboard & Export (post-6.3)
+
+Trois correctifs ciblés, sans toucher au thème, à l'i18n, au responsive ni à l'isolation par utilisateur (toutes les données viennent du cache Zustand hydraté = lignes Postgres de l'utilisateur courant ; aucune requête Prisma directe côté page).
+
+### 1. Badges KPI dynamiques (Dashboard)
+Les badges de variation des StatCards ne sont plus codés en dur (`+12.5%`/`-3.2%`) — ils sont calculés depuis les vraies données **filtrées par la plage de dates** (`incomesF`/`expensesF`), via des **fonctions pures** de `lib/selectors.ts` :
+- `monthOverMonthChange(rows)` — variation % entre le mois le plus récent **avec données** et le mois précédent avec données. Renvoie `null` s'il n'y a pas deux mois comparables (ou si le total du mois précédent est 0) → badge neutre « — », **jamais de % inventé** (cas nouvel utilisateur / période unique). Générique : marche pour incomes ET expenses (`{date, amount}`).
+- `avgSavingsRate(incomes, expenses, 6)` — vraie moyenne du taux d'épargne sur les 6 derniers mois avec données (réutilise `monthlyBreakdown`, ignore les mois sans revenu). `null` si aucun mois éligible.
+
+Mapping (helper `variationBadge(change, goodWhenUp)` dans la page) :
+- **Revenus totaux** → variation MoM, **vert** si ≥ 0 (flèche ↑), **rouge** sinon (↓).
+- **Dépenses totales** → variation MoM, **sens inversé** : une hausse est **rouge** (mauvais pour l'utilisateur), une baisse **verte**. La flèche suit la direction réelle ; seule la couleur encode bon/mauvais.
+- **Épargne nette** → « Positif » (vert) si net ≥ 0, « Négatif » (rouge) sinon (déjà dynamique, conservé tel quel).
+- **Taux d'épargne** → garde le libellé « Moy. 6 mois » **et** affiche la vraie moyenne 6 mois (neutre) ; « — » seul si pas de donnée.
+
+`StatCard` étend son badge avec un `icon?` optionnel (flèche ↑/↓ lucide) ; types `BadgeVariant`/`StatCardBadge` exportés. **Aucun nouveau libellé i18n** requis (réutilise `dashboard.sixMonthAvg`, `common.positive/negative` ; « — » est universel).
+
+### 2. Sidebar mobile se referme à la navigation
+`components/layout/sidebar.tsx` : au clic sur un item de navigation, `handleNavigate()` appelle `setOpenMobile(false)` **uniquement si `isMobile`** (via `useSidebar()` du SidebarProvider shadcn + `hooks/use-mobile.ts`). Sur desktop, comportement inchangé (le drawer mobile = `Sheet`, l'état desktop = `open`).
+
+### 3. Export : choix CSV ou PDF (Topbar)
+Le bouton « Export » ouvre désormais un **dropdown shadcn** (CSV / PDF) au lieu de télécharger directement.
+- **CSV** : comportement existant conservé (`lib/csv`, ledger revenus+dépenses).
+- **PDF** : nouveau **rapport financier** — `lib/financial-report-pdf.ts` (`buildFinancialReport`), construit avec **jsPDF + jspdf-autotable** (déjà dépendances du projet, prouvées SSR-safe ; choix le plus simple/robuste, pas de nouvelle lib type @react-pdf/renderer). **Importé dynamiquement au clic** → reste hors du bundle global (la topbar est montée sur toutes les pages).
+  - A4, marges 16 mm, noir & blanc, imprimable. **En-tête** : logo MyFinance (ou `prefs.logoUrl` ; fallback wordmark texte si l'image ne charge pas) + pagination « PAGE p/N » en haut à droite. **Titre** « RAPPORT FINANCIER » (traduit, mis en majuscules). **Bloc identité** = `prefs.displayName` — **pas d'IBAN/adresse/crédit-débit bancaire** (c'est un rapport de budget, pas un relevé de compte ; aucune marque tierce). **Période** = min→max des dates des transactions (DD/MM/YYYY).
+  - **Tableau** : Date | Type (Revenu/Dépense) | Description | Revenu | Dépense (revenus dans la colonne Revenu, dépenses dans Dépense), en-tête sur gris très clair, lignes fines (`theme: grid`, lignes claires).
+  - **Totaux** bas-droite : Total revenus, Total dépenses, **Épargne nette** mise en évidence (bande grise). Montants via `formatCurrencyFull` (2 décimales) dans la devise des prefs. Totaux calculés via `lib/selectors` (réutilisés).
+  - **i18n** : namespace `report` ajouté aux **9 fichiers** messages (EN + FR complets, autres = fallback EN). Données = **exclusivement** celles de l'utilisateur connecté (cache hydraté).
+
+### Vérifié
+- `tsc --noEmit` clean. JSON des 9 locales valide. Lint : **aucune nouvelle erreur** (l'erreur `react-hooks/set-state-in-effect` de `topbar.tsx:76` **préexiste** — guard de montage anti-mismatch hydration, hors périmètre).
+
+### Écarts résiduels
+- **Glyphes devise PDF** : `formatCurrencyFull` rend le symbole de la devise ; la police Helvetica par défaut de jsPDF ne dessine pas quelques symboles exotiques (₹ INR, ₵ GHS) → fallback glyphe. USD/EUR/GBP/JPY/CNY OK. (Même limite que `lib/pdf-report.ts`, qui la contourne via le code ISO ; non corrigé ici car l'utilisateur a explicitement demandé `formatCurrency`.)
+- Le dropdown export n'affiche pas d'état « busy » visuel pendant la génération PDF (chargement logo + build quasi instantané ; un échec est silencieux et non bloquant).
+
+### Fichiers (post-6.3)
+Ajoutés : `lib/financial-report-pdf.ts`. Modifiés : `lib/selectors.ts` (`monthOverMonthChange`, `avgSavingsRate`), `components/shared/stat-card.tsx` (badge `icon` + types exportés), `app/(app)/dashboard/page.tsx` (badges dynamiques + helper `variationBadge`), `components/layout/sidebar.tsx` (fermeture mobile), `components/layout/topbar.tsx` (dropdown CSV/PDF + `exportTransactionsPdf`), `messages/*.json` (namespace `report`).

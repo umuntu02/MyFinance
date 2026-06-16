@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
@@ -17,6 +18,8 @@ import type { Language } from "@/types";
 import {
   ChevronDown,
   Download,
+  FileSpreadsheet,
+  FileText,
   Monitor,
   Moon,
   Printer,
@@ -58,7 +61,8 @@ const THEME_ICONS: Record<string, React.ElementType> = {
 export function Topbar() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
-  const language = useFinanceStore((s) => s.prefs.language);
+  const prefs = useFinanceStore((s) => s.prefs);
+  const language = prefs.language;
   const incomes = useFinanceStore((s) => s.incomes);
   const expenses = useFinanceStore((s) => s.expenses);
   const updatePrefs = useFinanceStore((s) => s.updatePrefs);
@@ -66,6 +70,7 @@ export function Topbar() {
 
   const t = useTranslations("topbar");
   const tc = useTranslations("common");
+  const tr = useTranslations("report");
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -107,6 +112,45 @@ export function Topbar() {
       ]),
     ].sort((a, b) => String(b[1]).localeCompare(String(a[1])));
     downloadCsv(`myfinance-transactions-${todayStamp()}.csv`, [header, ...rows]);
+  }
+
+  // Export the same current-user ledger as a clean, printable PDF report. The
+  // jsPDF builder is loaded on demand (dynamic import) so it never weighs on the
+  // global app bundle. Labels are passed translated so the PDF respects the UI
+  // language; data is the hydrated store (this user's DB rows only).
+  async function exportTransactionsPdf() {
+    try {
+      const { buildFinancialReport } = await import("@/lib/financial-report-pdf");
+      const doc = await buildFinancialReport(
+        {
+          incomes,
+          expenses,
+          currency: prefs.currency,
+          displayName: prefs.displayName,
+          logoUrl: prefs.logoUrl,
+        },
+        {
+          title: tr("title"),
+          account: tr("account"),
+          generatedOn: tr("generatedOn"),
+          from: tr("from"),
+          to: tr("to"),
+          date: tr("date"),
+          type: tr("type"),
+          description: tr("description"),
+          income: tr("income"),
+          expense: tr("expense"),
+          totalIncome: tr("totalIncome"),
+          totalExpenses: tr("totalExpenses"),
+          netSavings: tr("netSavings"),
+          page: tr("page"),
+          empty: tr("empty"),
+        }
+      );
+      doc.save(`myfinance-report-${todayStamp()}.pdf`);
+    } catch {
+      // Non-blocking: a failed export simply downloads nothing.
+    }
   }
 
   const titleKey = PAGE_TITLE_KEYS[pathname];
@@ -206,16 +250,30 @@ export function Topbar() {
           <Printer className="h-4 w-4" />
         </Button>
 
-        {/* Export CSV (current user's transactions) */}
-        <Button
-          size="sm"
-          className="h-8 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
-          onClick={exportTransactionsCsv}
-          aria-label={`${tc("export")} CSV`}
-        >
-          <Download className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline text-sm">{tc("export")}</span>
-        </Button>
+        {/* Export menu — choose CSV or PDF (current user's transactions) */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+              aria-label={tc("export")}
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline text-sm">{tc("export")}</span>
+              <ChevronDown className="h-3 w-3 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem onClick={exportTransactionsCsv} className="cursor-pointer">
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={exportTransactionsPdf} className="cursor-pointer">
+              <FileText className="h-4 w-4 mr-2" />
+              PDF
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

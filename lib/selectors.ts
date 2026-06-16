@@ -197,3 +197,41 @@ export function incomeVsExpensesSeries(
     ({ month, income, expenses: exp }) => ({ month, income, expenses: exp })
   );
 }
+
+// ── KPI deltas (dashboard stat-card badges) ────────────────────────────────────
+
+// Percentage change of a dated, amount-bearing series (incomes OR expenses)
+// between its most recent month with data and the month immediately before it.
+// Returns null when there aren't two comparable months, or when the earlier
+// month's total is 0 — so the dashboard can show a neutral "—" instead of an
+// invented (or infinite) percentage for a brand-new account with a single
+// period of data. The sign is the raw change (positive = the total went up);
+// callers decide whether "up" is good (income) or bad (expenses).
+export function monthOverMonthChange(
+  rows: { date: string; amount: number }[]
+): number | null {
+  const months = Array.from(new Set(rows.map((r) => toYearMonth(r.date)))).sort();
+  if (months.length < 2) return null;
+  const totalFor = (ym: string) =>
+    rows.filter((r) => toYearMonth(r.date) === ym).reduce((s, r) => s + r.amount, 0);
+  const previous = totalFor(months[months.length - 2]);
+  if (previous === 0) return null;
+  const current = totalFor(months[months.length - 1]);
+  return ((current - previous) / previous) * 100;
+}
+
+// Average monthly savings rate over the last `months` months that have data
+// (reuses monthlyBreakdown's per-month rate). Months without income are skipped
+// (their rate is undefined). Returns null when no month qualifies, so the badge
+// can fall back to a neutral state instead of showing a meaningless 0%.
+export function avgSavingsRate(
+  incomes: Income[],
+  expenses: Expense[],
+  months = 6
+): number | null {
+  const rates = monthlyBreakdown(incomes, expenses, months)
+    .filter((b) => b.income > 0)
+    .map((b) => b.savingsRate);
+  if (rates.length === 0) return null;
+  return rates.reduce((s, r) => s + r, 0) / rates.length;
+}

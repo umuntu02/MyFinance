@@ -11,6 +11,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import {
@@ -31,6 +32,13 @@ export function AppSidebar() {
   const pathname = usePathname();
   const t = useTranslations("sidebar");
   const tn = useTranslations("nav");
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  // On mobile/tablet the sidebar is a drawer (Sheet); navigating to a new page
+  // should close it. On desktop it stays as-is. Only acts when isMobile.
+  function handleNavigate() {
+    if (isMobile) setOpenMobile(false);
+  }
 
   const navSections = [
     {
@@ -111,7 +119,7 @@ export function AppSidebar() {
                           "bg-sidebar-active text-sidebar-accent-foreground font-medium",
                       )}
                     >
-                      <Link href={item.href}>
+                      <Link href={item.href} onClick={handleNavigate}>
                         <item.icon className="shrink-0" />
                         <span>{item.title}</span>
                       </Link>

@@ -1,4 +1,21 @@
 {
+  "report": {
+    "title": "Financial Report",
+    "account": "Account holder",
+    "generatedOn": "Generated on",
+    "from": "From",
+    "to": "to",
+    "date": "Date",
+    "type": "Type",
+    "description": "Description",
+    "income": "Income",
+    "expense": "Expense",
+    "totalIncome": "Total income",
+    "totalExpenses": "Total expenses",
+    "netSavings": "Net savings",
+    "page": "Page",
+    "empty": "No transactions to display."
+  },
   "common": {
     "cancel": "Cancelar",
     "save": "Guardar",

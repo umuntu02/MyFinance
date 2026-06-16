@@ -1,4 +1,21 @@
 {
+  "report": {
+    "title": "Rapport financier",
+    "account": "Titulaire",
+    "generatedOn": "Généré le",
+    "from": "Du",
+    "to": "au",
+    "date": "Date",
+    "type": "Type",
+    "description": "Description",
+    "income": "Revenu",
+    "expense": "Dépense",
+    "totalIncome": "Total des revenus",
+    "totalExpenses": "Total des dépenses",
+    "netSavings": "Épargne nette",
+    "page": "Page",
+    "empty": "Aucune transaction à afficher."
+  },
   "common": {
     "cancel": "Annuler",
     "save": "Enregistrer",
