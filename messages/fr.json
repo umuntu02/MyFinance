@@ -79,7 +79,15 @@
     "notesOptional": "Notes (optionnel)",
     "notesPlaceholder": "Notes supplémentaires…",
     "descriptionLabel": "Description",
-    "descriptionPlaceholder": "ex. Courses alimentaires"
+    "descriptionPlaceholder": "ex. Courses alimentaires",
+    "rangeAll": "Tout",
+    "rangeThisMonth": "Ce mois-ci",
+    "rangeLast3": "3 derniers mois",
+    "rangeLast6": "6 derniers mois",
+    "rangeThisYear": "Cette année",
+    "rangeLastYear": "L'année dernière",
+    "byMonth": "Mois",
+    "byYear": "Année"
   },
   "income": {
     "title": "Revenus",
@@ -226,7 +234,25 @@
     "loadDemoAction": "Charger des données de démo",
     "loadingDemo": "Chargement…",
     "demoLoaded": "Données de démo chargées pour votre compte.",
-    "demoError": "Impossible de charger les données de démo. Veuillez réessayer."
+    "demoError": "Impossible de charger les données de démo. Veuillez réessayer.",
+    "displayNamePlaceholder": "Votre nom",
+    "budget": "Budget",
+    "monthlyBudget": "Budget mensuel",
+    "monthlyBudgetDesc": "Limite de dépenses utilisée pour le calcul « Budget utilisé » sur la page Dépenses",
+    "exportJson": "Exporter en JSON",
+    "exportPdf": "Exporter en PDF",
+    "exportError": "Impossible d'exporter vos données. Veuillez réessayer.",
+    "chooseFile": "Choisir un fichier de sauvegarde",
+    "invalidFile": "Ce fichier n'est pas une sauvegarde JSON valide.",
+    "importConfirm": "Cela REMPLACERA toutes vos données actuelles par la sauvegarde. Continuer ?",
+    "importSuccess": "Sauvegarde restaurée avec succès.",
+    "importError": "Impossible de restaurer la sauvegarde. Vérifiez le fichier et réessayez.",
+    "resetTitle": "Réinitialiser le compte",
+    "resetDesc": "Effacer toutes les données et restaurer les catégories et paramètres par défaut.",
+    "resetButton": "Réinitialiser",
+    "resetConfirm": "Cela efface tous vos revenus, dépenses, objectifs et catégories personnalisées, et réinitialise vos paramètres par défaut. Continuer ?",
+    "resetSuccess": "Compte réinitialisé aux valeurs par défaut.",
+    "resetError": "Impossible de réinitialiser votre compte. Veuillez réessayer."
   },
   "login": {
     "title": "Bon retour",

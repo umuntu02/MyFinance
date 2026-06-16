@@ -3,6 +3,7 @@ import { AppSidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { I18nProvider } from "@/components/providers/i18n-provider";
 import { StoreHydrator } from "@/components/providers/store-hydrator";
+import { ThemeSync } from "@/components/providers/theme-sync";
 import { getUserData } from "@/lib/data";
 
 // Server Component: loads the current user's data once (per request) and feeds
@@ -12,6 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <StoreHydrator data={data}>
+      <ThemeSync />
       <I18nProvider>
         <SidebarProvider defaultOpen>
           <AppSidebar />

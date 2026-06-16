@@ -13,7 +13,7 @@ import { SEED_INCOMES, SEED_EXPENSES, SEED_GOALS } from "@/lib/seed";
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Default categories, mirroring the icons used in lib/selectors.ts.
-const DEFAULT_INCOME_CATEGORIES: { name: string; icon: string }[] = [
+export const DEFAULT_INCOME_CATEGORIES: { name: string; icon: string }[] = [
   { name: "Salary", icon: "briefcase" },
   { name: "Freelance", icon: "code-2" },
   { name: "Investment", icon: "trending-up" },
@@ -21,7 +21,7 @@ const DEFAULT_INCOME_CATEGORIES: { name: string; icon: string }[] = [
   { name: "Other", icon: "circle-dot" },
 ];
 
-const DEFAULT_EXPENSE_CATEGORIES: { name: string; icon: string }[] = [
+export const DEFAULT_EXPENSE_CATEGORIES: { name: string; icon: string }[] = [
   { name: "Housing", icon: "home" },
   { name: "Food & Dining", icon: "utensils" },
   { name: "Transport", icon: "car" },
@@ -58,6 +58,61 @@ export async function seedDefaultsForUser(userId: string, displayName = "") {
     prisma.userPrefs.upsert({
       where: { userId },
       update: {},
+      create: {
+        userId,
+        currency: "USD",
+        language: "en",
+        theme: "system",
+        displayName,
+        monthlyBudget: 3500,
+      },
+    }),
+  ]);
+}
+
+/**
+ * Reset the current user to a clean default state: wipe all financial data
+ * (incomes, expenses, goals) AND custom categories, then re-create the default
+ * categories + default UserPrefs. Strictly scoped to `userId` — never touches
+ * another user's rows. Backs the "Reset" button in Settings.
+ */
+export async function resetUserToDefaults(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const displayName = user?.name ?? "";
+
+  await prisma.$transaction([
+    prisma.income.deleteMany({ where: { userId } }),
+    prisma.expense.deleteMany({ where: { userId } }),
+    prisma.savingsGoal.deleteMany({ where: { userId } }),
+    prisma.category.deleteMany({ where: { userId } }),
+    prisma.category.createMany({
+      data: [
+        ...DEFAULT_INCOME_CATEGORIES.map((c) => ({
+          ...c,
+          type: CategoryType.income,
+          isDefault: true,
+          userId,
+        })),
+        ...DEFAULT_EXPENSE_CATEGORIES.map((c) => ({
+          ...c,
+          type: CategoryType.expense,
+          isDefault: true,
+          userId,
+        })),
+      ],
+      skipDuplicates: true,
+    }),
+    prisma.userPrefs.upsert({
+      where: { userId },
+      update: {
+        currency: "USD",
+        language: "en",
+        theme: "system",
+        displayName,
+        logoUrl: null,
+        avatarUrl: null,
+        monthlyBudget: 3500,
+      },
       create: {
         userId,
         currency: "USD",

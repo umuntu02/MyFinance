@@ -79,7 +79,15 @@
     "notesOptional": "Maelezo (hiari)",
     "notesPlaceholder": "Maelezo ya ziada…",
     "descriptionLabel": "Maelezo",
-    "descriptionPlaceholder": "mf. ununuzi wa vyakula"
+    "descriptionPlaceholder": "mf. ununuzi wa vyakula",
+    "rangeAll": "All time",
+    "rangeThisMonth": "This month",
+    "rangeLast3": "Last 3 months",
+    "rangeLast6": "Last 6 months",
+    "rangeThisYear": "This year",
+    "rangeLastYear": "Last year",
+    "byMonth": "Month",
+    "byYear": "Year"
   },
   "income": {
     "title": "Mapato",
@@ -226,7 +234,25 @@
     "loadDemoAction": "Load demo data",
     "loadingDemo": "Loading…",
     "demoLoaded": "Demo data loaded for your account.",
-    "demoError": "Could not load demo data. Please try again."
+    "demoError": "Could not load demo data. Please try again.",
+    "displayNamePlaceholder": "Your name",
+    "budget": "Budget",
+    "monthlyBudget": "Monthly Budget",
+    "monthlyBudgetDesc": "Spending limit used for the Budget Used metric on the Expenses page",
+    "exportJson": "Export JSON",
+    "exportPdf": "Export PDF",
+    "exportError": "Could not export your data. Please try again.",
+    "chooseFile": "Choose backup file",
+    "invalidFile": "That file isn't a valid JSON backup.",
+    "importConfirm": "This will REPLACE all of your current data with the backup. Continue?",
+    "importSuccess": "Backup restored successfully.",
+    "importError": "Could not restore the backup. Please check the file and try again.",
+    "resetTitle": "Reset Account",
+    "resetDesc": "Erase all data and restore the default categories and settings.",
+    "resetButton": "Reset to defaults",
+    "resetConfirm": "This erases all your incomes, expenses, goals and custom categories, and resets your settings to defaults. Continue?",
+    "resetSuccess": "Account reset to defaults.",
+    "resetError": "Could not reset your account. Please try again."
   },
   "login": {
     "title": "Welcome back",

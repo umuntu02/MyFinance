@@ -1,82 +1,52 @@
 "use client";
 
-import {
-  Image,
-  User,
-  DollarSign,
-  Palette,
-  Globe,
-  DatabaseBackup,
-  ChevronRight,
-} from "lucide-react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
+
 import { useFinanceStore } from "@/store/useFinanceStore";
+import { usePrefs } from "@/hooks/use-prefs";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageLoading } from "@/components/shared/page-loading";
 import { SectionCard } from "@/components/shared/section-card";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { DemoDataButton } from "@/components/settings/demo-data-button";
+import { BackupRestore } from "@/components/settings/backup-restore";
+import type { Currency, Language } from "@/types";
 
-const LANGUAGE_LABELS: Record<string, string> = {
-  en: "English",
-  fr: "Français",
-  es: "Español",
-  it: "Italiano",
-  zh: "中文",
-  ja: "日本語",
-  hi: "हिंदी",
-};
+const LANGUAGES: { code: Language; label: string }[] = [
+  { code: "en", label: "English" },
+  { code: "fr", label: "Français" },
+  { code: "es", label: "Español" },
+  { code: "it", label: "Italiano" },
+  { code: "zh", label: "中文" },
+  { code: "ja", label: "日本語" },
+  { code: "hi", label: "हिंदी" },
+  { code: "sw", label: "Kiswahili" },
+  { code: "ki", label: "Kirundi" },
+];
 
-type SettingRow = {
-  label: string;
-  description: string;
-  badge?: string;
-};
+const CURRENCIES: { code: Currency; label: string }[] = [
+  { code: "USD", label: "USD ($) — US Dollar" },
+  { code: "EUR", label: "EUR (€) — Euro" },
+  { code: "GBP", label: "GBP (£) — British Pound" },
+  { code: "JPY", label: "JPY (¥) — Japanese Yen" },
+  { code: "CNY", label: "CNY (¥) — Chinese Yuan" },
+  { code: "INR", label: "INR (₹) — Indian Rupee" },
+  { code: "KES", label: "KES (KSh) — Kenyan Shilling" },
+  { code: "UGX", label: "UGX (USh) — Ugandan Shilling" },
+  { code: "TZS", label: "TZS (TSh) — Tanzanian Shilling" },
+  { code: "RWF", label: "RWF (FRw) — Rwandan Franc" },
+  { code: "BIF", label: "BIF (FBu) — Burundian Franc" },
+  { code: "SSP", label: "SSP (£) — South Sudanese Pound" },
+  { code: "GHS", label: "GHS (₵) — Ghanaian Cedi" },
+  { code: "XAF", label: "XAF (FCFA) — Central African CFA" },
+  { code: "XOF", label: "XOF (CFA) — West African CFA" },
+  { code: "XPF", label: "XPF (₣) — CFP Franc" },
+];
 
-function SettingsSection({
-  title,
-  rows,
-  comingSoon,
-  stepLabel,
-}: {
-  title: string;
-  rows: SettingRow[];
-  comingSoon?: boolean;
-  stepLabel: string;
-}) {
-  return (
-    <SectionCard
-      title={title}
-      headerExtra={
-        comingSoon ? (
-          <Badge className="text-xs font-medium border-0 bg-muted text-muted-foreground">
-            {stepLabel}
-          </Badge>
-        ) : undefined
-      }
-    >
-      <div className="divide-y divide-border -mx-5 px-5">
-        {rows.map((row) => (
-          <div
-            key={row.label}
-            className="flex items-center justify-between py-3.5 gap-4 cursor-pointer group"
-          >
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">{row.label}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{row.description}</p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {row.badge && (
-                <span className="text-xs text-muted-foreground">{row.badge}</span>
-              )}
-              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </SectionCard>
-  );
-}
+const SELECT_CLASS =
+  "w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer";
 
 export default function SettingsPage() {
   const prefs = useFinanceStore((s) => s.prefs);
@@ -84,117 +54,156 @@ export default function SettingsPage() {
   const t = useTranslations("settings");
   const tc = useTranslations("common");
 
-  const currentLangLabel = LANGUAGE_LABELS[prefs.language] ?? "English";
-  const currentThemeLabel =
-    prefs.theme === "light" ? tc("light") :
-    prefs.theme === "dark"  ? tc("dark")  : tc("system");
+  const {
+    changeLanguage,
+    changeCurrency,
+    changeTheme,
+    changeDisplayName,
+    changeMonthlyBudget,
+  } = usePrefs();
+
+  const [name, setName] = useState(prefs.displayName ?? "");
+  const [budget, setBudget] = useState<string>(String(prefs.monthlyBudget ?? 0));
 
   if (!hydrated) return <PageLoading cards={2} />;
 
+  const nameDirty = name.trim() !== (prefs.displayName ?? "");
+  const budgetValue = parseFloat(budget);
+  const budgetDirty =
+    Number.isFinite(budgetValue) && budgetValue >= 0 && budgetValue !== prefs.monthlyBudget;
+
   return (
     <>
-      <PageHeader
-        title={t("title")}
-        subtitle={t("subtitle")}
-      />
+      <PageHeader title={t("title")} subtitle={t("subtitle")} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <SettingsSection
-          title={t("logo")}
-          comingSoon
-          stepLabel={t("step5")}
-          rows={[
-            {
-              label: t("appLogo"),
-              description: t("appLogoDesc"),
-              badge: t("default"),
-            },
-          ]}
-        />
+        {/* Profile */}
+        <SectionCard title={t("profile")}>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              {t("displayName")}
+            </label>
+            <div className="flex gap-2">
+              <Input
+                value={name}
+                placeholder={t("displayNamePlaceholder")}
+                onChange={(e) => setName(e.target.value)}
+              />
+              <Button
+                size="sm"
+                className="cursor-pointer"
+                disabled={!nameDirty}
+                onClick={() => changeDisplayName(name.trim())}
+              >
+                {tc("save")}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">{t("displayNameDesc")}</p>
+          </div>
+        </SectionCard>
 
-        <SettingsSection
-          title={t("profile")}
-          comingSoon
-          stepLabel={t("step5")}
-          rows={[
-            {
-              label: t("displayName"),
-              description: t("displayNameDesc"),
-              badge: prefs.displayName || "Alex",
-            },
-            {
-              label: t("avatar"),
-              description: t("avatarDesc"),
-              badge: t("default"),
-            },
-          ]}
-        />
+        {/* Currency */}
+        <SectionCard title={t("currency")}>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              {t("displayCurrency")}
+            </label>
+            <select
+              className={SELECT_CLASS}
+              value={prefs.currency}
+              onChange={(e) => changeCurrency(e.target.value as Currency)}
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">{t("displayCurrencyDesc")}</p>
+          </div>
+        </SectionCard>
 
-        <SettingsSection
-          title={t("currency")}
-          comingSoon
-          stepLabel={t("step5")}
-          rows={[
-            {
-              label: t("displayCurrency"),
-              description: t("displayCurrencyDesc"),
-              badge: `${prefs.currency} (${prefs.currency === "USD" ? "$" : prefs.currency === "EUR" ? "€" : prefs.currency === "GBP" ? "£" : prefs.currency})`,
-            },
-          ]}
-        />
+        {/* Theme */}
+        <SectionCard title={t("theme")}>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              {t("colorTheme")}
+            </label>
+            <select
+              className={SELECT_CLASS}
+              value={prefs.theme}
+              onChange={(e) => changeTheme(e.target.value as typeof prefs.theme)}
+            >
+              <option value="light">{tc("light")}</option>
+              <option value="dark">{tc("dark")}</option>
+              <option value="system">{tc("system")}</option>
+            </select>
+            <p className="text-xs text-muted-foreground">{t("colorThemeDesc")}</p>
+          </div>
+        </SectionCard>
 
-        <SettingsSection
-          title={t("theme")}
-          comingSoon
-          stepLabel={t("step5")}
-          rows={[
-            {
-              label: t("colorTheme"),
-              description: t("colorThemeDesc"),
-              badge: currentThemeLabel,
-            },
-          ]}
-        />
+        {/* Language */}
+        <SectionCard title={t("language")}>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              {t("appLanguage")}
+            </label>
+            <select
+              className={SELECT_CLASS}
+              value={prefs.language}
+              onChange={(e) => changeLanguage(e.target.value as Language)}
+            >
+              {LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">{t("appLanguageDesc")}</p>
+          </div>
+        </SectionCard>
 
-        <SettingsSection
-          title={t("language")}
-          comingSoon
-          stepLabel={t("step5")}
-          rows={[
-            {
-              label: t("appLanguage"),
-              description: t("appLanguageDesc"),
-              badge: currentLangLabel,
-            },
-          ]}
-        />
+        {/* Monthly budget */}
+        <SectionCard title={t("budget")}>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              {t("monthlyBudget")}
+            </label>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                min={0}
+                step="50"
+                value={budget}
+                onChange={(e) => setBudget(e.target.value)}
+              />
+              <Button
+                size="sm"
+                className="cursor-pointer"
+                disabled={!budgetDirty}
+                onClick={() => changeMonthlyBudget(budgetValue)}
+              >
+                {tc("save")}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">{t("monthlyBudgetDesc")}</p>
+          </div>
+        </SectionCard>
 
-        <SettingsSection
-          title={t("backupRestore")}
-          comingSoon
-          stepLabel={t("step5")}
-          rows={[
-            {
-              label: t("exportData"),
-              description: t("exportDataDesc"),
-            },
-            {
-              label: t("importData"),
-              description: t("importDataDesc"),
-            },
-            {
-              label: t("resetToSeed"),
-              description: t("resetToSeedDesc"),
-            },
-          ]}
-        />
-
+        {/* Demo data */}
         <SectionCard title={t("demoData")}>
           <div className="flex flex-col gap-4 py-1">
             <p className="text-sm text-muted-foreground">{t("loadDemoDesc")}</p>
             <DemoDataButton />
           </div>
         </SectionCard>
+
+        {/* Backup & Restore — full width */}
+        <div className="lg:col-span-2">
+          <SectionCard title={t("backupRestore")}>
+            <BackupRestore />
+          </SectionCard>
+        </div>
       </div>
     </>
   );

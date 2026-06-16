@@ -14,10 +14,10 @@
 - [x] Étape 2 — Types + store + seed
 - [x] Étape 3 — Composants réutilisables
 - [x] Étape 4 — Pages
-- [~] Étape 5 — Customisation/i18n/backup/print
+- [x] Étape 5 — Customisation/i18n/backup/print
   - [x] i18n complet (next-intl v4.13.0)
-  - [ ] backup/restore, date-picker, budget dans prefs
-- [~] Étape 6 — Migration multi-utilisateurs (localStorage → PostgreSQL + Prisma + Better Auth)
+  - [x] backup/restore + reset, date-range fonctionnel, budget dans prefs, prefs (devise/langue/thème/nom/budget) éditables et persistées en BDD — cf. section « Customisation, sauvegarde & rapports »
+- [x] Étape 6 — Migration multi-utilisateurs (localStorage → PostgreSQL + Prisma + Better Auth)
   - [x] 6.1 — Base de données (Prisma + Postgres : schéma, migration `init`, client) — cf. section « Base de données »
   - [x] 6.2 — Better Auth (email+password, /login + /register, proxy de protection, seed catégories + prefs par utilisateur) — cf. section « Auth »
   - [x] 6.3 — Migration des pages : Server Actions CRUD par-utilisateur, hydratation du cache Zustand depuis le serveur, suppression de `persist`, catégories custom — cf. section « Données par-utilisateur »
@@ -29,16 +29,22 @@
 | `app/layout.tsx` | Layout racine : ThemeProvider, TooltipProvider, IBM Plex Sans |
 | `app/page.tsx` | Redirect → /dashboard |
 | `app/(app)/layout.tsx` | Shell app : SidebarProvider + AppSidebar + Topbar |
-| `app/(app)/dashboard/page.tsx` | Dashboard : 4 StatCards, IncomeVsExpensesChart, SpendingDonut, Recent Transactions, Savings Goals preview, Add Income/Expense dialogs, Date Range button |
+| `app/(app)/dashboard/page.tsx` | Dashboard : 4 StatCards, IncomeVsExpensesChart (toggle **mois/année**), SpendingDonut, Recent Transactions, Savings Goals preview, Add Income/Expense dialogs, **Date Range fonctionnel** (presets : tout / ce mois / 3 mois / 6 mois / cette année / l'an dernier — filtre réel sur tous les widgets) |
 | `app/(app)/income/page.tsx` | Income : 4 StatCards, search + month filter, DataTable (date/source/category badge/amount/notes), Add/Edit/Delete dialog |
 | `app/(app)/expenses/page.tsx` | Expenses : 4 StatCards (budget used %), search + month filter, DataTable (date/description/category/amount rouge/status badge), Add/Edit/Delete dialog |
 | `app/(app)/savings-goals/page.tsx` | Savings Goals : grille 2 col (icône/nom/date/montants/ProgressBar), carte Total Target Remaining, Add/Edit/Delete goal dialog |
 | `app/(app)/monthly-report/page.tsx` | Monthly Report : 4 StatCards, SavingsBarChart, ExpenseDistributionPie, tableau Month-by-Month, export CSV, Print |
 | `app/(app)/categories/page.tsx` | Categories : 2 colonnes SectionCard (Income / Expenses by Category) avec CategoryRow + pourcentages |
-| `app/(app)/settings/page.tsx` | Settings : placeholder structuré (Logo, Profile, Currency, Theme, Language, Backup/Restore) — logique à implémenter étape 5 |
+| `app/(app)/settings/page.tsx` | Settings **fonctionnel** : Profile (displayName), Currency (16 devises), Theme, Language, **Monthly Budget**, Backup/Restore (`BackupRestore`), Demo Data. Tout écrit en BDD via `usePrefs`/Server Actions et met l'UI à jour immédiatement. **Logo + Avatar retirés** (demande explicite) |
 | `app/globals.css` | Design tokens CSS (clair + sombre), utilitaires .text-income/.text-expense/.text-brand-gold |
 | `components/layout/sidebar.tsx` | Sidebar forêt-verte, shadcn Sidebar primitives, collapsible="icon" |
-| `components/layout/topbar.tsx` | Topbar sticky : titre page, langue, thème, impression, export |
+| `components/layout/topbar.tsx` | Topbar sticky : titre page, langue, thème, impression, **export CSV fonctionnel** (ledger revenus+dépenses de l'utilisateur courant via `lib/csv`) |
+| `app/actions/backup.ts` | Server Actions backup : `exportUserData` (snapshot complet → JSON/PDF), `restoreUserData` (upload validé zod → remplace les données de l'utilisateur en une transaction Prisma, jamais un autre user), `resetUserData` (retour à l'état seed) |
+| `lib/csv.ts` | Helpers CSV partagés : `toCsv`/`downloadCsv` (échappement + BOM UTF-8), `triggerDownload`, `todayStamp`. Utilisés par la topbar et le Monthly Report |
+| `lib/pdf-report.ts` | Builder PDF client (jsPDF + jspdf-autotable) : rapport multi-pages (résumé KPI, détail mois par mois, tables revenus/dépenses/objectifs, pagination auto). Argent formaté `CODE 1 234,56` (glyphes sûrs) |
+| `hooks/use-prefs.ts` | Hook `usePrefs()` : édition optimiste des prefs (devise/langue/thème/nom/budget) → cache Zustand immédiat + persistance BDD via Server Action `updatePrefs`. `changeTheme` pousse aussi next-themes |
+| `components/providers/theme-sync.tsx` | `ThemeSync` : aligne next-themes sur `prefs.theme` (source de vérité BDD) à l'hydratation et après un restore. DB-side only (pas de boucle) |
+| `components/settings/backup-restore.tsx` | UI Backup/Restore : Export JSON, Export PDF, Import (FileReader → restore), Reset (confirmations natives, ré-hydrate le cache) |
 | `components/shared/page-placeholder.tsx` | Carte "under construction" générique |
 | `components/ui/*` | Composants shadcn installés : avatar, button, dropdown-menu, input, separator, sheet, sidebar, skeleton, tooltip |
 | `hooks/use-mobile.ts` | Hook détection mobile (généré par shadcn) |
@@ -145,10 +151,10 @@
 - Charts recharts : utiliser `TooltipContentProps` (sans generics) + `content={ComponentRef}` (pas `content={<JSX />}`) — contrainte recharts v3
 - Couleurs charts : CSS vars `var(--income)`, `var(--expense)`, `var(--sidebar)`, `var(--chart-1..5)` directement dans SVG fill/stroke
 - Pour les pie/donut : le caller fournit `color: string` par slice (hex recommandé pour compatibilité SVG maximale)
-- Étape 4 — Écarts visuels à corriger (étape 5) :
-  - Dashboard topbar : le bouton "Date Range" est décoratif (pas de date-picker réel) ; fonctionnel en étape 5
-  - Expenses : `MONTHLY_BUDGET` codé en dur à $3 500 ; à exposer dans `prefs` à l'étape 5
-  - Settings : toutes les sections sont des placeholders cliquables sans logique ; logique complète à l'étape 5
+- Étape 4 — Écarts visuels (corrigés en étape 5) :
+  - ✅ Dashboard : bouton "Date Range" **fonctionnel** (presets, filtre réel sur tous les widgets) — voir section « Customisation, sauvegarde & rapports »
+  - ✅ Expenses : `MONTHLY_BUDGET` codé en dur **remplacé** par `prefs.monthlyBudget` (éditable dans Settings, utilisé dans « Budget Used % »)
+  - ✅ Settings : sections **fonctionnelles** (plus de placeholders) ; Logo + Avatar retirés
   - `formatPercent` affiche 1 décimale (ex. "60.0%") — conforme à la maquette
   - Tailwind warnings `sm:w-[180px]` → `sm:w-45` et `max-w-[200px]` → `max-w-50` appliqués (Tailwind v4)
 
@@ -275,10 +281,52 @@ Remplacement de localStorage (Zustand-persist) par des **données serveur PAR UT
 - `tsc --noEmit` clean ; `next build` OK (7 pages `(app)` → `ƒ` dynamiques car session, Proxy actif).
 - Smoke-test runtime (dev) : `/login` 200 ; `/dashboard` sans cookie → 307 `/login` ; sign-up → hook seed (catégories+prefs) ; les **7 pages** renvoient 200 avec session (sérialisation `Decimal`/`Date` OK, aucun log d'erreur). Utilisateur de test supprimé après coup.
 
-### Écarts résiduels (hors périmètre 6.3)
-- Page **Settings** : currency / displayName / logo / avatar restent des placeholders (logique = étape 5) ; seule la langue est éditable (topbar) et persistée. Le **thème** reste géré par next-themes et n'est pas (re)synchronisé vers `prefs.theme` en DB.
-- Dashboard : bouton « Date Range » toujours décoratif ; badges KPI (`+12.5%`/`-3.2%`) toujours statiques (maquette).
-- Backup/restore, date-picker : étape 5.
+### Écarts résiduels (hors périmètre 6.3 — tous résolus en étape 5 sauf indiqué)
+- ✅ Page **Settings** : currency / displayName / monthlyBudget / theme / language sont désormais éditables et persistés en BDD (`usePrefs`). Logo + avatar **retirés** (demande explicite).
+- ✅ **Thème** : `prefs.theme` est la source de vérité (BDD) ; `ThemeSync` aligne next-themes à l'hydratation et après restore. (next-themes garde sa propre clé localStorage pour le no-flash SSR — autorisé.)
+- ✅ Dashboard : « Date Range » fonctionnel ; toggle mois/année sur le graphe.
+- ✅ Backup/restore + reset implémentés (JSON + PDF).
+- **Restant (cosmétique, maquette)** : badges KPI du Dashboard (`+12.5%`/`-3.2%`) toujours statiques. Email-verification Better Auth non activée (hors périmètre).
 
 ### Fichiers (6.3)
 Ajoutés : `lib/data.ts`, `lib/serialize.ts`, `app/actions/{_session,incomes,expenses,goals,categories,prefs}.ts`, `components/providers/store-hydrator.tsx`, `components/shared/page-loading.tsx`. Modifiés : `store/useFinanceStore.ts`, `types/index.ts`, `lib/seed.ts` (DEFAULT_PREFS.monthlyBudget), `app/(app)/layout.tsx`, les **7 pages** `app/(app)/*/page.tsx`, `app/(app)/settings/actions.ts`, `components/settings/demo-data-button.tsx`, `components/shared/category-row.tsx`, `components/layout/topbar.tsx`, `messages/*.json` (clés `categories.*` de gestion + `common.errorGeneric`).
+
+## Customisation, sauvegarde & rapports (étape 5)
+
+Finalisation des points restants de l'étape 5 une fois la BDD en place. Tout respecte les conventions 6.3 : écritures = Server Actions scoping par `userId`, le store Zustand reste un cache ré-hydraté avec la valeur retournée, aucun `localStorage` applicatif.
+
+### 1. Backup / Restore / Reset (`app/actions/backup.ts` + `components/settings/backup-restore.tsx`)
+- **Export** : `exportUserData()` (Server Action) re-dérive le `userId` de la session, charge le `FinanceSnapshot` complet (incomes, expenses, goals, categories, prefs) et le renvoie enveloppé `{ app, version, exportedAt, data }`.
+  - **JSON** : le client télécharge le snapshot (`myfinance-backup-YYYY-MM-DD.json`).
+  - **PDF** : `lib/pdf-report.ts` (jsPDF + jspdf-autotable) génère un rapport multi-pages (résumé KPI, mois par mois, tables revenus/dépenses/objectifs, pagination + numéros de page). Montants formatés `CODE 1 234,56` pour éviter les glyphes manquants de la police PDF par défaut.
+- **Restore** : upload `.json` → `FileReader` (lecture client, pas de FormData) → `JSON.parse` → **confirmation** → `restoreUserData(payload)`. La Server Action **valide en zod** (chaque entité), puis en **une transaction Prisma** : `deleteMany` (incomes/expenses/goals/categories de `userId`) puis `createMany` depuis la sauvegarde (ids ré-générés — jamais ceux du fichier — pour éviter toute collision inter-DB) + `upsert` prefs. **Strictement scopé `userId`** : ne lit ni n'écrit jamais les données d'un autre utilisateur. Renvoie le snapshot frais → ré-hydratation du cache.
+- **Reset** : `resetUserData()` → `resetUserToDefaults(userId)` (`lib/user-seed.ts`) : vide les données + catégories custom, recrée les **catégories par défaut** (`isDefault=true`) et des **UserPrefs par défaut** (USD/en/system/budget 3500, displayName = nom du compte). Renvoie le snapshot frais.
+
+### 2. Toggle mois/année (Dashboard)
+- `incomeVsExpensesSeries(incomes, expenses, granularity, limit?)` (`lib/selectors.ts`) regroupe désormais par **mois** (12 derniers) ou par **année** (toutes les années présentes). Bascule segmentée dans l'en-tête du graphe « Income vs Expenses » → suivre l'évolution de la gestion au mois ou à l'année.
+
+### 3. UserPrefs persistées en BDD (`hooks/use-prefs.ts` + `components/providers/theme-sync.tsx`)
+- `usePrefs()` : édition **optimiste** de `currency` / `language` / `theme` / `displayName` / `monthlyBudget` → cache Zustand mis à jour **immédiatement** (l'UI re-rend dans la nouvelle devise/langue/thème) + persistance BDD en arrière-plan via `updatePrefs`. La langue de la topbar passe aussi par ce flux.
+- **Thème** : `prefs.theme` devient la source de vérité (BDD). `changeTheme` pousse next-themes (flip instantané du `<html>`) **et** la BDD. `ThemeSync` (monté dans `app/(app)/layout.tsx`) réaligne next-themes sur `prefs.theme` à l'hydratation et après un restore. next-themes conserve sa propre clé localStorage pour le no-flash SSR (seul localStorage autorisé, inchangé).
+- **Logo + Avatar** retirés de Settings (demande explicite ; colonnes `logoUrl`/`avatarUrl` conservées en schéma, simplement non éditées).
+
+### 4. monthlyBudget
+- Déjà branché en 6.3 (`prefs.monthlyBudget` remplace le `$3 500` codé en dur dans « Budget Used % » de la page Expenses) ; rendu **éditable** dans Settings (input + Save). Reset/restore le ramènent à la valeur par défaut / sauvegardée.
+
+### 5. Date Range (Dashboard)
+- Bouton **fonctionnel** : dropdown de presets (Tout / Ce mois / 3 mois / 6 mois / Cette année / L'an dernier). Calcule des bornes `YYYY-MM-DD` (comparaison de chaînes ISO) et filtre `incomesF`/`expensesF` qui alimentent **tous** les widgets (KPIs, graphe, donut, transactions récentes). Les objectifs d'épargne (non datés) ne sont pas filtrés.
+
+### 6. Export CSV
+- **Topbar** : bouton Export désormais branché → `exportTransactionsCsv()` télécharge le ledger complet (revenus + dépenses) de l'utilisateur courant depuis le cache (hydraté de la BDD), via `lib/csv` (échappement + BOM UTF-8 pour Excel).
+- **Monthly Report** : export CSV refactorisé sur `lib/csv` (mêmes garanties). Données = breakdown mois par mois de l'utilisateur courant.
+
+### Vérifié
+- `tsc --noEmit` clean ; `next build` OK (7 pages `(app)` → `ƒ`, Proxy actif).
+- jsPDF + autotable s'importent/ s'exécutent sans accès `window` au top-level → pas de crash SSR (la page Settings est `ƒ`).
+- Smoke-test runtime (dev) : sign-up via l'API Better Auth (seed catégories+prefs), les **7 pages** renvoient 200 avec session, aucun marqueur d'erreur dans le HTML. Utilisateur de test supprimé après coup.
+
+### Dépendances ajoutées
+`jspdf` (4.2.1) + `jspdf-autotable` (5.0.8) — génération PDF client.
+
+### Fichiers (étape 5)
+Ajoutés : `app/actions/backup.ts`, `lib/csv.ts`, `lib/pdf-report.ts`, `hooks/use-prefs.ts`, `components/providers/theme-sync.tsx`, `components/settings/backup-restore.tsx`. Modifiés : `app/(app)/settings/page.tsx` (réécriture fonctionnelle), `app/(app)/dashboard/page.tsx` (date range + toggle), `app/(app)/monthly-report/page.tsx` (CSV partagé), `app/(app)/layout.tsx` (ThemeSync), `components/layout/topbar.tsx` (export CSV), `lib/selectors.ts` (granularité), `lib/user-seed.ts` (`resetUserToDefaults` + export des listes par défaut), `messages/*.json` (clés `dashboard.range*`/`byMonth`/`byYear` + `settings.*` backup/budget), `package.json` (jspdf).

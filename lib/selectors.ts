@@ -167,14 +167,33 @@ export function monthlyBreakdown(
 
 // ── Income vs Expenses series (for line/bar charts) ────────────────────────────
 
+export type Granularity = "month" | "year";
+
+// Group the income/expenses series either by month (default — last `limit`
+// months) or by year (every year present in the data). Drives the dashboard
+// chart's month/year toggle so the user can watch the evolution at either scale.
 export function incomeVsExpensesSeries(
   incomes: Income[],
   expenses: Expense[],
-  limit = 6
+  granularity: Granularity = "month",
+  limit?: number
 ): ChartDataPoint[] {
-  return monthlyBreakdown(incomes, expenses, limit).map(({ month, income, expenses: exp }) => ({
-    month,
-    income,
-    expenses: exp,
-  }));
+  if (granularity === "year") {
+    const years = Array.from(
+      new Set([
+        ...incomes.map((i) => i.date.slice(0, 4)),
+        ...expenses.map((e) => e.date.slice(0, 4)),
+      ])
+    ).sort();
+    const chosen = limit ? years.slice(-limit) : years;
+    return chosen.map((y) => ({
+      month: y, // the XAxis label — a 4-digit year here
+      income: incomes.filter((i) => i.date.startsWith(y)).reduce((s, i) => s + i.amount, 0),
+      expenses: expenses.filter((e) => e.date.startsWith(y)).reduce((s, e) => s + e.amount, 0),
+    }));
+  }
+
+  return monthlyBreakdown(incomes, expenses, limit ?? 12).map(
+    ({ month, income, expenses: exp }) => ({ month, income, expenses: exp })
+  );
 }

@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useFinanceStore } from "@/store/useFinanceStore";
 import { updatePrefs as updatePrefsAction } from "@/app/actions/prefs";
+import { downloadCsv, todayStamp } from "@/lib/csv";
 import type { Language } from "@/types";
 import {
   ChevronDown,
@@ -58,6 +59,8 @@ export function Topbar() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const language = useFinanceStore((s) => s.prefs.language);
+  const incomes = useFinanceStore((s) => s.incomes);
+  const expenses = useFinanceStore((s) => s.expenses);
   const updatePrefs = useFinanceStore((s) => s.updatePrefs);
   const [, startTransition] = useTransition();
 
@@ -78,6 +81,32 @@ export function Topbar() {
         // non-blocking: the cache already reflects the choice
       }
     });
+  }
+
+  // Export the current user's full transaction ledger (incomes + expenses) as
+  // CSV. The store is hydrated from Postgres, so this is always the logged-in
+  // user's DB data — never another account's.
+  function exportTransactionsCsv() {
+    const header = ["Type", "Date", "Category", "Label", "Amount", "Status / Notes"];
+    const rows = [
+      ...incomes.map((i) => [
+        "Income",
+        i.date,
+        i.category,
+        i.source,
+        i.amount,
+        i.notes ?? "",
+      ]),
+      ...expenses.map((e) => [
+        "Expense",
+        e.date,
+        e.category,
+        e.description,
+        e.amount,
+        e.status,
+      ]),
+    ].sort((a, b) => String(b[1]).localeCompare(String(a[1])));
+    downloadCsv(`myfinance-transactions-${todayStamp()}.csv`, [header, ...rows]);
   }
 
   const titleKey = PAGE_TITLE_KEYS[pathname];
@@ -177,10 +206,12 @@ export function Topbar() {
           <Printer className="h-4 w-4" />
         </Button>
 
-        {/* Export */}
+        {/* Export CSV (current user's transactions) */}
         <Button
           size="sm"
           className="h-8 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+          onClick={exportTransactionsCsv}
+          aria-label={`${tc("export")} CSV`}
         >
           <Download className="h-3.5 w-3.5" />
           <span className="hidden sm:inline text-sm">{tc("export")}</span>

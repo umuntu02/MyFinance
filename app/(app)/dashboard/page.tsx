@@ -8,9 +8,17 @@ import {
   Percent,
   Plus,
   CalendarRange,
+  ChevronDown,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useFinanceStore } from "@/store/useFinanceStore";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { createIncome as createIncomeAction } from "@/app/actions/incomes";
 import { createExpense as createExpenseAction } from "@/app/actions/expenses";
 import {
@@ -46,6 +54,43 @@ const EXPENSE_COLORS: Record<string, string> = {
   Other:           "#adb5bd",
 };
 
+type RangeKey = "all" | "thisMonth" | "last3" | "last6" | "thisYear" | "lastYear";
+type ChartGranularity = "month" | "year";
+
+const RANGE_I18N: Record<RangeKey, string> = {
+  all: "rangeAll",
+  thisMonth: "rangeThisMonth",
+  last3: "rangeLast3",
+  last6: "rangeLast6",
+  thisYear: "rangeThisYear",
+  lastYear: "rangeLastYear",
+};
+
+const pad = (n: number) => String(n).padStart(2, "0");
+const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+// Resolve a preset to inclusive "YYYY-MM-DD" bounds (string compare works since
+// all dates are zero-padded ISO). `all` returns no bounds → no filtering.
+function rangeBounds(key: RangeKey): { start?: string; end?: string } {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  switch (key) {
+    case "thisMonth":
+      return { start: ymd(new Date(y, m, 1)), end: ymd(new Date(y, m + 1, 0)) };
+    case "last3":
+      return { start: ymd(new Date(y, m - 2, 1)), end: ymd(new Date(y, m + 1, 0)) };
+    case "last6":
+      return { start: ymd(new Date(y, m - 5, 1)), end: ymd(new Date(y, m + 1, 0)) };
+    case "thisYear":
+      return { start: `${y}-01-01`, end: `${y}-12-31` };
+    case "lastYear":
+      return { start: `${y - 1}-01-01`, end: `${y - 1}-12-31` };
+    default:
+      return {};
+  }
+}
+
 function defaultIncomeForm() {
   return { date: "", source: "", category: "", amount: "", notes: "" };
 }
@@ -69,13 +114,36 @@ export default function DashboardPage() {
   const t  = useTranslations("dashboard");
   const tc = useTranslations("common");
 
-  const inc  = useMemo(() => totalIncome(incomes), [incomes]);
-  const exp  = useMemo(() => totalExpenses(expenses), [expenses]);
-  const net  = useMemo(() => netSavings(incomes, expenses), [incomes, expenses]);
-  const rate = useMemo(() => savingsRate(incomes, expenses), [incomes, expenses]);
+  // Date Range — a real filter applied to every dashboard widget below.
+  const [range, setRange] = useState<RangeKey>("all");
+  const [chartGranularity, setChartGranularity] = useState<ChartGranularity>("month");
+  const { start, end } = useMemo(() => rangeBounds(range), [range]);
 
-  const chartData = useMemo(() => incomeVsExpensesSeries(incomes, expenses), [incomes, expenses]);
-  const expCats   = useMemo(() => expenseByCategory(expenses), [expenses]);
+  const incomesF = useMemo(
+    () => incomes.filter((i) => (!start || i.date >= start) && (!end || i.date <= end)),
+    [incomes, start, end],
+  );
+  const expensesF = useMemo(
+    () => expenses.filter((e) => (!start || e.date >= start) && (!end || e.date <= end)),
+    [expenses, start, end],
+  );
+
+  const inc  = useMemo(() => totalIncome(incomesF), [incomesF]);
+  const exp  = useMemo(() => totalExpenses(expensesF), [expensesF]);
+  const net  = useMemo(() => netSavings(incomesF, expensesF), [incomesF, expensesF]);
+  const rate = useMemo(() => savingsRate(incomesF, expensesF), [incomesF, expensesF]);
+
+  const chartData = useMemo(
+    () =>
+      incomeVsExpensesSeries(
+        incomesF,
+        expensesF,
+        chartGranularity,
+        chartGranularity === "month" ? 12 : undefined,
+      ),
+    [incomesF, expensesF, chartGranularity],
+  );
+  const expCats   = useMemo(() => expenseByCategory(expensesF), [expensesF]);
   const donutData: DonutSlice[] = useMemo(
     () => expCats.map((c) => ({ name: c.name, value: c.total, color: EXPENSE_COLORS[c.name] ?? "#adb5bd" })),
     [expCats],
@@ -83,15 +151,15 @@ export default function DashboardPage() {
 
   const recentTransactions = useMemo(() => {
     const merged = [
-      ...[...incomes].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5).map((i) => ({
+      ...[...incomesF].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5).map((i) => ({
         id: i.id, date: i.date, label: i.source, category: i.category, amount: i.amount, type: "income" as const,
       })),
-      ...[...expenses].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5).map((e) => ({
+      ...[...expensesF].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5).map((e) => ({
         id: e.id, date: e.date, label: e.description, category: e.category, amount: e.amount, type: "expense" as const,
       })),
     ];
     return merged.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
-  }, [incomes, expenses]);
+  }, [incomesF, expensesF]);
 
   const [incomeOpen, setIncomeOpen] = useState(false);
   const [incomeForm, setIncomeForm] = useState(defaultIncomeForm);
@@ -170,10 +238,27 @@ export default function DashboardPage() {
         subtitle={t("subtitle")}
         actions={
           <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer">
-              <CalendarRange className="h-4 w-4" />
-              {t("dateRange")}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer">
+                  <CalendarRange className="h-4 w-4" />
+                  {t(RANGE_I18N[range])}
+                  <ChevronDown className="h-3 w-3 opacity-60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuRadioGroup
+                  value={range}
+                  onValueChange={(v) => setRange(v as RangeKey)}
+                >
+                  {(Object.keys(RANGE_I18N) as RangeKey[]).map((key) => (
+                    <DropdownMenuRadioItem key={key} value={key} className="cursor-pointer">
+                      {t(RANGE_I18N[key])}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               size="sm"
               className="gap-1.5 cursor-pointer bg-income hover:bg-income/90 text-white"
@@ -229,7 +314,28 @@ export default function DashboardPage() {
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6">
-        <SectionCard title={t("incomeVsExpenses")} className="lg:col-span-3">
+        <SectionCard
+          title={t("incomeVsExpenses")}
+          className="lg:col-span-3"
+          headerExtra={
+            <div className="flex items-center rounded-lg border border-border p-0.5 text-xs">
+              {(["month", "year"] as ChartGranularity[]).map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setChartGranularity(g)}
+                  className={`rounded-md px-2 py-1 cursor-pointer transition-colors ${
+                    chartGranularity === g
+                      ? "bg-muted text-foreground font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {g === "month" ? t("byMonth") : t("byYear")}
+                </button>
+              ))}
+            </div>
+          }
+        >
           <IncomeVsExpensesChart data={chartData} currency={currency} />
         </SectionCard>
         <SectionCard title={t("spendingByCategory")} className="lg:col-span-2">

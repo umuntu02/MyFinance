@@ -13,6 +13,7 @@ import {
   expenseByCategory,
 } from "@/lib/selectors";
 import { formatCurrency, formatPercent } from "@/lib/format";
+import { downloadCsv, todayStamp } from "@/lib/csv";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageLoading } from "@/components/shared/page-loading";
 import { StatCard } from "@/components/shared/stat-card";
@@ -68,6 +69,8 @@ export default function MonthlyReportPage() {
     [expCats],
   );
 
+  // Exports the current user's month-by-month breakdown (derived from the
+  // DB-hydrated store) via the shared CSV helper (UTF-8 BOM + escaping).
   function handleExportCSV() {
     const headers = ["Month", "Income", "Expenses", "Net Savings", "Savings Rate", "Status"];
     const rows = breakdown.map((b) => [
@@ -78,14 +81,7 @@ export default function MonthlyReportPage() {
       b.savingsRate.toFixed(1) + "%",
       b.status,
     ]);
-    const csv  = [headers, ...rows].map((r) => r.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
-    a.download = "monthly-report.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadCsv(`myfinance-monthly-report-${todayStamp()}.csv`, [headers, ...rows]);
   }
 
   const tableHeaders = [
