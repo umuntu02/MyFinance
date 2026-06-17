@@ -17,9 +17,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <I18nProvider>
         <SidebarProvider defaultOpen>
           <AppSidebar />
-          <SidebarInset className="flex flex-col min-h-svh">
+          {/* min-w-0 lets this flex item shrink below its content's intrinsic
+              width (flex items default to min-width:auto). Without it, a wide
+              table cell — e.g. a very long imported description — would force the
+              inset past the viewport and scroll the whole document. */}
+          <SidebarInset className="flex flex-col min-h-svh min-w-0">
             <Topbar />
-            <main className="flex-1 overflow-y-auto p-4 md:p-6">
+            {/* overflow-x-hidden is the page-level safety net: nothing here ever
+                scrolls the document horizontally. Wide tables keep their own
+                overflow-x-auto container, so their scroll stays local. */}
+            <main className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-4 md:p-6">
               {children}
             </main>
           </SidebarInset>

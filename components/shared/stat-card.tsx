@@ -57,19 +57,22 @@ export function StatCard({
         </div>
       </div>
 
-      <div className="flex items-end justify-between gap-2">
-        <p className="text-2xl font-bold text-foreground leading-none tracking-tight">
+      {/* Value + badge grouped on the left. flex-wrap lets a long badge (e.g. a
+          translated "6-month avg -14.0%") drop to its own line instead of
+          overflowing the card; max-w-full + inner truncate cap it even alone. */}
+      <div className="flex items-end gap-x-2 gap-y-1 flex-wrap">
+        <p className="min-w-0 text-2xl font-bold text-foreground leading-none tracking-tight">
           {value}
         </p>
         {badge && (
           <span
             className={cn(
-              "inline-flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full shrink-0",
+              "inline-flex max-w-full min-w-0 items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full",
               BADGE_STYLES[badgeVariant]
             )}
           >
-            {badge.icon && <badge.icon className="h-3 w-3" />}
-            {badge.text}
+            {badge.icon && <badge.icon className="h-3 w-3 shrink-0" />}
+            <span className="truncate">{badge.text}</span>
           </span>
         )}
       </div>

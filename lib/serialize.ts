@@ -1,4 +1,12 @@
-import type { Income, Expense, SavingsGoal, Category, UserPrefs } from "@/types";
+import type {
+  Income,
+  Expense,
+  SavingsGoal,
+  Category,
+  UserPrefs,
+  ImportProfile,
+  ImportMapping,
+} from "@/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // API boundary serializers (step 6.3)
@@ -109,6 +117,22 @@ export function serializeCategory(row: CategoryRow): Category {
     icon: row.icon,
     type: row.type,
     isDefault: row.isDefault,
+  };
+}
+
+type ImportProfileRow = {
+  id: string;
+  name: string;
+  config: unknown; // Prisma Json column → already a parsed object
+};
+
+export function serializeImportProfile(row: ImportProfileRow): ImportProfile {
+  return {
+    id: row.id,
+    name: row.name,
+    // The config shape is validated by zod when written (saveImportProfile), so
+    // the stored JSON is trusted to match ImportMapping when read back.
+    config: row.config as ImportMapping,
   };
 }
 

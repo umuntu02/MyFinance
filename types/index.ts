@@ -91,6 +91,55 @@ export type UserPrefs = {
   monthlyBudget: number;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Generic bank-statement import (no per-bank rules).
+//
+// `ImportMapping` is the user-defined, reusable configuration that drives the
+// import engine: which columns are date/amount/label/category, whether amounts
+// live in one signed column or split debit/credit columns, and the date & number
+// formats. Columns are referenced BY HEADER NAME (not position) so a saved
+// profile still resolves correctly when a later file's columns shift order.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Day/Month/Year ordering for textual dates. Excel/serial dates are detected
+// automatically and bypass this; "auto" lets the engine pick from the samples.
+export type DateFormatId = "auto" | "DMY" | "MDY" | "YMD";
+
+export type DecimalSeparator = "," | ".";
+export type ThousandsSeparator = "," | "." | " " | "'" | "none";
+
+// "single": one signed amount column (one sign means expense, the other income).
+// "split":  separate debit and credit columns.
+export type AmountMode = "single" | "split";
+
+export type ImportMapping = {
+  amountMode: AmountMode;
+  dateColumn: string | null;
+  // single mode
+  amountColumn: string | null;
+  expenseSign: "negative" | "positive"; // which sign of the signed column is an expense
+  // split mode
+  debitColumn: string | null;
+  creditColumn: string | null;
+  // label (one or more columns concatenated) + optional category column
+  descriptionColumns: string[];
+  categoryColumn: string | null;
+  // optional, editable: text removed from every label (case-insensitive) to
+  // strip noisy prefixes/markers, e.g. "CARTE 12/03" or "PAIEMENT CB".
+  labelCleanup: string;
+  // formats (auto-detected, user-adjustable)
+  dateFormat: DateFormatId;
+  decimalSeparator: DecimalSeparator;
+  thousandsSeparator: ThousandsSeparator;
+};
+
+// A reusable, user-named mapping (one row in ImportProfile, scoped to the user).
+export type ImportProfile = {
+  id: string;
+  name: string;
+  config: ImportMapping;
+};
+
 export type MonthlyBreakdown = {
   month: string;    // "Oct 2025" — label d'affichage
   yearMonth: string; // "2025-10" — clé de tri

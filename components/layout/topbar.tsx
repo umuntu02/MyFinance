@@ -34,6 +34,7 @@ const PAGE_TITLE_KEYS: Record<string, string> = {
   "/dashboard": "dashboard",
   "/income": "income",
   "/expenses": "expenses",
+  "/import": "import",
   "/savings-goals": "savingsGoals",
   "/monthly-report": "monthlyReport",
   "/categories": "categories",

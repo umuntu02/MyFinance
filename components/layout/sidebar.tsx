@@ -22,6 +22,7 @@ import {
   Target,
   TrendingDown,
   TrendingUp,
+  Upload,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
@@ -52,6 +53,7 @@ export function AppSidebar() {
       items: [
         { title: tn("income"), href: "/income", icon: TrendingUp },
         { title: tn("expenses"), href: "/expenses", icon: TrendingDown },
+        { title: tn("import"), href: "/import", icon: Upload },
       ],
     },
     {

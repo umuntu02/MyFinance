@@ -21,6 +21,7 @@
   - [x] 6.1 — Base de données (Prisma + Postgres : schéma, migration `init`, client) — cf. section « Base de données »
   - [x] 6.2 — Better Auth (email+password, /login + /register, proxy de protection, seed catégories + prefs par utilisateur) — cf. section « Auth »
   - [x] 6.3 — Migration des pages : Server Actions CRUD par-utilisateur, hydratation du cache Zustand depuis le serveur, suppression de `persist`, catégories custom — cf. section « Données par-utilisateur »
+- [x] Étape 7 — Import générique de relevés bancaires (moteur piloté par mapping + profils mémorisés) — cf. section « Import générique de relevés bancaires »
 
 ## Carte des fichiers
 
@@ -121,6 +122,7 @@
 | `/monthly-report` | Monthly Report | ✅ |
 | `/categories` | Categories | ✅ |
 | `/settings` | Settings (placeholder structuré) | ✅ |
+| `/import` | Import de relevé bancaire (assistant générique : upload → mapping → aperçu → import) | ✅ |
 
 ## Corrections console/hydration
 
@@ -369,3 +371,76 @@ Le bouton « Export » ouvre désormais un **dropdown shadcn** (CSV / PDF) au li
 
 ### Fichiers (post-6.3)
 Ajoutés : `lib/financial-report-pdf.ts`. Modifiés : `lib/selectors.ts` (`monthOverMonthChange`, `avgSavingsRate`), `components/shared/stat-card.tsx` (badge `icon` + types exportés), `app/(app)/dashboard/page.tsx` (badges dynamiques + helper `variationBadge`), `components/layout/sidebar.tsx` (fermeture mobile), `components/layout/topbar.tsx` (dropdown CSV/PDF + `exportTransactionsPdf`), `messages/*.json` (namespace `report`).
+
+## Import générique de relevés bancaires (étape 7)
+
+Import de relevé bancaire **100 % générique** : **un seul moteur**, **aucune règle par banque**, **aucune détection « c'est telle banque »**. Le code ne devine jamais la banque — il **propose** une détection (en-tête, colonnes, formats) comme **suggestion**, que l'utilisateur valide ou corrige. La configuration d'association (« mapping ») est **mémorisée par utilisateur** sous forme de **profils réutilisables**. Respecte les conventions 6.3 : parsing **côté navigateur** (rien n'est envoyé tant que l'utilisateur n'a pas confirmé), écriture = Server Action scoping `userId`, store = cache ré-hydraté, i18n EN+FR, thème/responsive intacts.
+
+### Principe (non-objectifs inclus)
+- **Pas** de base de règles par banque, **pas** de « si Crédit Agricole alors… ». La généricité vient d'un **écran de mapping** + de **profils** sauvegardés, pas de code spécifique.
+- **Pas** de catégorisation automatique : toute ligne importée tombe sur la catégorie du fichier si présente, sinon **« Other »** ; l'utilisateur trie ensuite (et peut corriger la catégorie dans l'aperçu).
+- Le **préambule** au-dessus de l'en-tête (titre, titulaire, IBAN, solde, lignes vides) est **ignoré et jamais importé/stocké**.
+
+### Moteur d'import — `lib/import/` (TS pur, sans React/DB, sans `xlsx` sauf le parseur)
+| Fichier | Rôle |
+|---|---|
+| `parse-file.ts` | **CLIENT only** : `readSpreadsheet(File)` → grille 2D de cellules natives via **SheetJS** (`xlsx` 0.20.3, build officiel CDN). `cellDates:true` conserve les vraies `Date`. XLSX/XLS/CSV. |
+| `header-detect.ts` | `detectHeaderRow` : scan des 25 premières lignes, score (mots-clés d'en-tête multi-langues + ratio de cellules « libellé » + à quel point les lignes en-dessous ressemblent à des données). `extractTable` construit `{headers, dataRows, preamble}` autour d'une ligne d'en-tête (auto **ou** override manuel). En-têtes dédupliqués, jamais vides (`Column N`). |
+| `column-suggest.ts` | `suggestMapping(table)` : **suggestion** d'association par mots-clés FR/EN/ES/IT/DE (date/débit/crédit/montant/libellé/catégorie ; évite `solde/balance`), repli sur l'inspection des valeurs (colonne dont les échantillons parsent comme dates/nombres ; colonne au texte le plus long = libellé). `emptyMapping()`, `reconcileMapping(mapping, headers)` (re-fit d'un profil au nouveau fichier : garde les colonnes encore présentes, remet les autres à `null`). |
+| `date.ts` | `parseDate(cell, format)` → ISO `YYYY-MM-DD`. Gère `Date` natives, **série Excel** (epoch 1899-12-30), textuel selon `DateFormatId` (`DMY/MDY/YMD/auto`), noms de mois EN+FR, années 2 chiffres, rejette les dates impossibles (31/02). `detectDateFormat(samples)` lève l'ambiguïté FR/US par vote (défaut **DMY**, européen). |
+| `number.ts` | `parseAmount(cell, decimal, thousands)` → number. Gère symboles de devise, espaces/NBSP, négatifs par `-` en tête/fin **ou** parenthèses. `detectNumberFormat` : le séparateur le plus à droite = décimal, l'autre = milliers ; détecte l'espace-milliers. |
+| `transform.ts` | `buildPreview(table, mapping, existing)` : applique le mapping → `PreviewRow[]` éditables. **Deux modes** : débit/crédit séparés **ou** colonne unique signée (`expenseSign`). Libellé multi-colonnes aplati. Lignes sans date/montant **exclues** mais **listées** (décochées). **Doublons** (date+montant+libellé normalisé, vs existants **et** au sein du lot) signalés **non bloquants**. `summarize` (X dépenses / Y revenus / Z ignorées / N doublons). |
+| `types.ts`, `text.ts`, `index.ts` | Types moteur (`Cell`, `SheetTable`, `PreviewRow`, …), helpers (`normalize` accent-insensible, `cellToString`), barrel. |
+
+### Écran de mapping (cœur de la généricité) — `components/import/`
+- **Assistant 3 étapes** (`import-wizard.tsx`) : **Upload → Mapping → Aperçu → Terminé**, avec stepper. Bandeau nom de fichier. Tout l'état vit dans le wizard (client).
+- `file-drop.tsx` : drag-&-drop / clic, formats XLSX/XLS/CSV, note de confidentialité (lecture navigateur).
+- `mapping-step.tsx` : **override de la ligne d'en-tête** ; colonne **Date** + **format de date** ; **mode montant** (toggle colonne unique signée / débit+crédit) ; **sens dépense** (négatif/positif) ; séparateurs **décimal** & **milliers** ; colonnes **Libellé** (multi-sélection, concaténées) ; colonne **Catégorie** (facultative) ; **aperçu en direct** des 5 premières lignes mappées. Section **Profils** : charger (chips), supprimer, **enregistrer** (nom + bouton).
+- `preview-step.tsx` : récap (4 compteurs), **table éditable** — case à cocher par ligne (réintégrables ; lignes invalides désactivées et listées avec motif), **catégorie corrigeable** (select selon le type, défaut « Other »), badges Type/Doublon, montant signé dans la devise des prefs. Bouton « Importer N opérations ».
+
+### Profils de mapping mémorisés (par utilisateur)
+- Modèle Prisma **`ImportProfile`** (`id, name, config Json, userId`, `@@unique([userId, name])`, FK cascade, index `userId`). `config` = `ImportMapping` sérialisé. Migration **`20260616223250_import_profiles`** (générée via `prisma migrate diff` datamodel→datamodel, hors-ligne ; **à appliquer avec `prisma migrate deploy`** côté env. avec Postgres — la DB locale était down au build).
+- Server Actions `app/actions/import-profiles.ts` : `saveImportProfile` (**upsert** sur `(userId,name)` → ré-enregistrer écrase = profil éditable, zod valide la forme du mapping), `deleteImportProfile`. `serializeImportProfile` (Json→`ImportMapping`). Chargés dans `getUserData()` → `FinanceSnapshot.importProfiles`, cache Zustand (`upsertImportProfile`/`deleteImportProfile`).
+- Au ré-import d'un fichier de structure similaire : choisir un profil → mapping **pré-rempli** (`reconcileMapping`).
+
+### Insertion (transactions)
+- Server Action `app/actions/import.ts` `importTransactions(rows)` : **validation tolérante par ligne** (`safeParse`) — chaque ligne est normalisée puis **bornée** (libellé clampé à 200, catégorie à 100) et les lignes vraiment malformées sont **ignorées**, jamais un échec global. (Un parse strict `z.array(...).parse` faisait **500 tout l'import** dès qu'un libellé concaténé dépassait 200 car. : corrigé.) Split → `income` (`source=libellé`) / `expense` (`status=Paid`), **`createMany` en une transaction Prisma** (les `createMany` vides sont sautés), **`userId` de session uniquement**, max 5000, retourne `getUserData()` frais → ré-hydratation du cache (pas de `revalidatePath`, cohérent 6.3).
+- **Vérifié en base réelle** (Postgres up) : migration `import_profiles` **appliquée** (`migrate deploy`) ; aller-retour `jsonb` du mapping + contrainte `unique(userId,name)` OK ; insertion mixte revenus/dépenses, libellé >200 clampé, lignes malformées sautées, `createMany` côté vide OK — tous validés.
+
+### i18n
+- Namespace **`import`** ajouté aux **9** fichiers messages (EN+FR **traduits**, ES/IT/ZH/JA/HI/SW/KI = fallback EN) + clés `topbar.import` / `nav.import`. Parité de structure obligatoire (`I18nProvider` type `Record<Language, typeof en>`).
+
+### Vérifié
+- Moteur testé hors-app sur relevés synthétiques **FR (préambule + débit/crédit)** et **US (colonne signée)** + round-trip **XLSX avec dates natives** : préambule (dont ligne « Solde ») ignoré, en-tête auto-détecté, formats FR/US détectés, lignes parsées, doublons & `reconcileMapping` OK. L'ambiguïté `03/02/2025` (DMY par défaut) confirme l'utilité du **sélecteur de format manuel**.
+- `tsc --noEmit` clean ; `next build` OK (`/import` → `ƒ` dynamique) ; ESLint **0 erreur/0 warning** sur les nouveaux fichiers (l'erreur `set-state-in-effect` de `topbar.tsx` **préexiste**, hors périmètre). Pas de smoke-test runtime (Postgres local indisponible).
+
+### Dépendances ajoutées
+`xlsx` **0.20.3** depuis le **CDN officiel SheetJS** (`https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`) — la version npm (0.18.5) est ancienne et porte des CVE connues. Importé uniquement par `lib/import/parse-file.ts` (chunk de la route `/import`).
+
+### Fichiers (étape 7)
+Ajoutés : `lib/import/{types,text,date,number,header-detect,column-suggest,transform,parse-file,index}.ts`, `app/actions/{import,import-profiles}.ts`, `app/(app)/import/page.tsx`, `components/import/{import-wizard,file-drop,mapping-step,preview-step}.tsx`, `prisma/migrations/20260616223250_import_profiles/`. Modifiés : `prisma/schema.prisma` (modèle `ImportProfile` + relation User), `types/index.ts` (`ImportMapping`/`ImportProfile`/formats), `lib/serialize.ts` (+`serializeImportProfile`), `lib/data.ts` (+`importProfiles`), `store/useFinanceStore.ts` (+`importProfiles` + mutateurs), `components/layout/sidebar.tsx` (item nav Import), `components/layout/topbar.tsx` (titre `/import`), `messages/*.json` (namespace `import` + `topbar/nav.import`), `package.json` (`xlsx`).
+
+## Correctif responsive — débordement horizontal post-import (étape 7.1)
+
+Après l'import de relevés bancaires, **tout le document scrollait horizontalement sur toutes les tailles d'écran** (il fallait faire glisser gauche/droite pour voir l'UI). Régression de mise en page uniquement — aucune donnée n'est en cause, rien n'a été supprimé.
+
+### Cause racine (deux facteurs combinés)
+1. **Libellés importés très longs non tronqués.** Certaines descriptions de relevés font plusieurs centaines de caractères **sans espace coupable** (ex. `PRELEVEMENT … CREDIT AGRICOLE ASSURANCE … FR92ZZZ24560`). Les cellules de table (`whitespace-nowrap` par défaut, shadcn) prenaient donc une **largeur intrinsèque énorme**.
+2. **Shell flex non contraint.** `SidebarInset` (le `<main>` du shell shadcn, `app/(app)/layout.tsx`) est un **flex item** sans `min-w-0`. Or un flex item a `min-width: auto` par défaut → il **refuse de rétrécir** sous la largeur intrinsèque de son contenu. La cellule géante poussait donc `SidebarInset` **au-delà du viewport**, faisant scroller **tout le document** (et pas seulement la table). Le `overflow-x-auto` interne de la table shadcn ne suffisait pas car aucun ancêtre flex n'était borné à la largeur de l'écran.
+
+### Correctifs
+- **Confinement du shell (cause racine)** — `app/(app)/layout.tsx` : `min-w-0` sur `SidebarInset` (autorise le rétrécissement du flex item) + `overflow-x-hidden` sur le `<main>` de page (**filet de sécurité** : plus rien ne scrolle le document horizontalement ; toute largeur excédentaire est clippée au niveau page). Les tables conservent leur **propre** conteneur `overflow-x-auto` → leur scroll horizontal reste **local à la table**, n'entraîne ni la sidebar, ni la topbar, ni les cartes.
+- **Troncature des libellés (cause racine)** — `components/shared/data-table.tsx` : la `TableColumn` reçoit deux options génériques **`truncate?: boolean`** + **`title?: (row) => string`**. Quand `truncate`, le contenu de la cellule est enveloppé dans un `<div class="max-w-37.5 sm:max-w-75 lg:max-w-md truncate">` (le **wrapper interne** à `max-width` + `overflow-hidden` tronque de façon fiable, contrairement à un `max-width` posé sur le `<td>` en `table-layout:auto`) ; le libellé complet reste accessible en **tooltip natif** (`title`). Appliqué à : **Dépenses** (`description`), **Revenus** (`notes`). La colonne **source** des Revenus (deux lignes) tronque chaque ligne dans un conteneur borné. La cellule du **contenu d'une cellule ne peut plus jamais élargir la table** au-delà de son conteneur.
+- **Tables d'import** — `components/import/preview-step.tsx` & `mapping-step.tsx` : la description passe d'un `max-w-* truncate` posé **sur le `<td>`** (peu fiable) à un **wrapper interne** `truncate` + `title` (le badge « doublon » reste `shrink-0`). Ces tables étaient déjà dans un conteneur `overflow-x-auto` (scroll local OK).
+- **Cartes à libellé utilisateur** — `app/(app)/savings-goals/page.tsx` : nom d'objectif en `truncate` + `title` dans un conteneur `min-w-0` (un nom long ne déforme plus la carte). `category-row.tsx` tronquait déjà (`min-w-0 flex-1 truncate`), inchangé.
+- **Badges des StatCards (Dashboard)** — `components/shared/stat-card.tsx` : le badge de variation pouvait **déborder de la carte** quand son texte était long (ex. « Moy. 6 mois -14.0% », d'autant plus en i18n où le libellé peut s'allonger) car la rangée valeur+badge était `justify-between` avec un badge `shrink-0`. Corrigé : `justify-between` retiré → **valeur et badge groupés à gauche** (le badge n'est plus poussé au bord droit) ; rangée en `flex-wrap` (un badge trop long **passe à la ligne** au lieu de déborder) + badge `max-w-full min-w-0` avec **troncature interne** (`<span class="truncate">`) et icône `shrink-0` ; la valeur reçoit `min-w-0`. Le badge ne dépasse plus jamais la largeur de la carte.
+
+### Responsive (régression corrigée sur tous les écrans)
+- Approche **scroll horizontal local propre** retenue pour les tables denses (conserve toutes les colonnes, cohérent partout) plutôt qu'un passage en cartes empilées. Aux largeurs ~375 px / ~768 px / desktop : le **document ne scrolle jamais** horizontalement ; seul le conteneur de table scrolle si ses colonnes dépassent. Sidebar en drawer mobile (`Sheet`) et topbar inchangés.
+- Thème clair/sombre, i18n et données **intacts** (modifications purement CSS/markup de mise en page).
+
+### Vérifié
+- `tsc --noEmit` clean ; ESLint **0 erreur/0 warning** sur les fichiers touchés (le warning `avgData` inutilisé de `expenses/page.tsx` **préexiste**, hors périmètre). Au passage : conversions Tailwind v4 `w-[90px]`→`w-22.5`, `max-w-[150px]`→`max-w-37.5`.
+
+### Fichiers (étape 7.1)
+Modifiés : `app/(app)/layout.tsx`, `components/shared/data-table.tsx`, `components/shared/stat-card.tsx`, `app/(app)/expenses/page.tsx`, `app/(app)/income/page.tsx`, `app/(app)/savings-goals/page.tsx`, `components/import/{preview-step,mapping-step}.tsx`.

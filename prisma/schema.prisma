@@ -34,11 +34,12 @@ model User {
   accounts Account[]
 
   // Financial data (step 6.1) — owned by this user
-  incomes    Income[]
-  expenses   Expense[]
-  goals      SavingsGoal[]
-  categories Category[]
-  prefs      UserPrefs?
+  incomes        Income[]
+  expenses       Expense[]
+  goals          SavingsGoal[]
+  categories     Category[]
+  prefs          UserPrefs?
+  importProfiles ImportProfile[]
 
   @@map("user")
 }
@@ -139,6 +140,28 @@ model UserPrefs {
 
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ImportProfile — a reusable, user-named bank-statement mapping (import feature).
+// `config` is the serialized ImportMapping (which columns are date/amount/label/
+// category, amount mode, date & number formats). NO per-bank logic lives here:
+// the import engine is generic and entirely driven by this user-defined config.
+// One row per named profile, scoped to the user; unique by (userId, name) so
+// saving with an existing name overwrites that profile.
+// ─────────────────────────────────────────────────────────────────────────────
+model ImportProfile {
+  id        String   @id @default(cuid())
+  name      String
+  config    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId])
 }
 
 enum CategoryType {

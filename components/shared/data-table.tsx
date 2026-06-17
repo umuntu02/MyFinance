@@ -17,6 +17,15 @@ export type TableColumn<T> = {
   cell: (row: T) => ReactNode;
   className?: string;
   headerClassName?: string;
+  /**
+   * Cap the cell width and clip overflowing content with an ellipsis. Use for
+   * free-text columns (descriptions, labels) where an imported value can be
+   * hundreds of characters long with no breakable space — otherwise the cell
+   * would widen the table past its container.
+   */
+  truncate?: boolean;
+  /** Full text shown as a native tooltip when the cell is truncated. */
+  title?: (row: T) => string;
 };
 
 type DataTableProps<T> = {
@@ -55,7 +64,7 @@ export function DataTable<T>({
               </TableHead>
             ))}
             {hasActions && (
-              <TableHead className="text-xs font-semibold tracking-wider uppercase text-muted-foreground py-3 text-right w-[90px]">
+              <TableHead className="text-xs font-semibold tracking-wider uppercase text-muted-foreground py-3 text-right w-22.5">
                 Actions
               </TableHead>
             )}
@@ -80,7 +89,16 @@ export function DataTable<T>({
               >
                 {columns.map((col) => (
                   <TableCell key={col.id} className={cn("py-3 text-sm", col.className)}>
-                    {col.cell(row)}
+                    {col.truncate ? (
+                      <div
+                        className="max-w-37.5 truncate sm:max-w-75 lg:max-w-md"
+                        title={col.title?.(row)}
+                      >
+                        {col.cell(row)}
+                      </div>
+                    ) : (
+                      col.cell(row)
+                    )}
                   </TableCell>
                 ))}
                 {hasActions && (

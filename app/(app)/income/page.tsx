@@ -135,9 +135,11 @@ export default function IncomePage() {
       id: "source",
       header: t("colSource"),
       cell: (row) => (
-        <div>
-          <p className="font-medium text-foreground">{row.source}</p>
-          {row.notes && <p className="text-xs text-muted-foreground truncate max-w-50">{row.notes}</p>}
+        <div className="max-w-37.5 sm:max-w-75 lg:max-w-md">
+          <p className="font-medium text-foreground truncate" title={row.source}>{row.source}</p>
+          {row.notes && (
+            <p className="text-xs text-muted-foreground truncate" title={row.notes}>{row.notes}</p>
+          )}
         </div>
       ),
     },
@@ -162,6 +164,8 @@ export default function IncomePage() {
     {
       id: "notes",
       header: t("colNotes"),
+      truncate: true,
+      title: (row) => row.notes ?? "",
       cell: (row) => (
         <span className="text-muted-foreground text-xs">{row.notes ?? "—"}</span>
       ),

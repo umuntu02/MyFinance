@@ -128,6 +128,8 @@ export default function ExpensesPage() {
     {
       id: "description",
       header: t("colDescription"),
+      truncate: true,
+      title: (row) => row.description,
       cell: (row) => <span className="font-medium text-foreground">{row.description}</span>,
     },
     {

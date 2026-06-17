@@ -126,12 +126,12 @@ export default function SavingsGoalsPage() {
               >
                 {/* Header */}
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-gold/10 text-brand-gold">
                       <Icon className="h-5 w-5" />
                     </div>
-                    <div>
-                      <p className="font-semibold text-foreground leading-none">{goal.name}</p>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-foreground leading-none truncate" title={goal.name}>{goal.name}</p>
                       <p className="text-xs text-muted-foreground mt-1">
                         {t("targetDate", { date: formatDate(goal.targetDate) })}
                       </p>

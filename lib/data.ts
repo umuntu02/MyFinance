@@ -11,6 +11,7 @@ import {
   serializeGoal,
   serializeCategory,
   serializePrefs,
+  serializeImportProfile,
 } from "@/lib/serialize";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -31,11 +32,12 @@ export async function getUserData(): Promise<FinanceSnapshot> {
 
   const userId = session.user.id;
 
-  const [incomes, expenses, goals, categories, prefs] = await Promise.all([
+  const [incomes, expenses, goals, categories, importProfiles, prefs] = await Promise.all([
     prisma.income.findMany({ where: { userId }, orderBy: { date: "desc" } }),
     prisma.expense.findMany({ where: { userId }, orderBy: { date: "desc" } }),
     prisma.savingsGoal.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
     prisma.category.findMany({ where: { userId }, orderBy: { name: "asc" } }),
+    prisma.importProfile.findMany({ where: { userId }, orderBy: { name: "asc" } }),
     prisma.userPrefs.findUnique({ where: { userId } }),
   ]);
 
@@ -47,6 +49,7 @@ export async function getUserData(): Promise<FinanceSnapshot> {
     savingsGoals: goals.map(serializeGoal),
     incomeCategories: allCategories.filter((c) => c.type === "income"),
     expenseCategories: allCategories.filter((c) => c.type === "expense"),
+    importProfiles: importProfiles.map(serializeImportProfile),
     prefs: prefs
       ? serializePrefs(prefs)
       : { ...DEFAULT_PREFS, displayName: session.user.name ?? DEFAULT_PREFS.displayName },

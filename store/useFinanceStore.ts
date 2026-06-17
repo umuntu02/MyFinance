@@ -5,6 +5,7 @@ import type {
   SavingsGoal,
   UserPrefs,
   Category,
+  ImportProfile,
 } from "@/types";
 import { DEFAULT_PREFS } from "@/lib/seed";
 
@@ -27,6 +28,7 @@ export type FinanceSnapshot = {
   savingsGoals: SavingsGoal[];
   incomeCategories: Category[];
   expenseCategories: Category[];
+  importProfiles: ImportProfile[];
   prefs: UserPrefs;
 };
 
@@ -55,6 +57,10 @@ type FinanceStore = FinanceSnapshot & {
   addCategory: (category: Category) => void;
   deleteCategory: (id: string) => void;
 
+  // Import-profile cache mutators (server persists; mirror locally)
+  upsertImportProfile: (profile: ImportProfile) => void;
+  deleteImportProfile: (id: string) => void;
+
   // Prefs cache (server persists; this only reflects the change locally)
   updatePrefs: (updates: Partial<UserPrefs>) => void;
 };
@@ -65,6 +71,7 @@ export const useFinanceStore = create<FinanceStore>()((set) => ({
   savingsGoals: [],
   incomeCategories: [],
   expenseCategories: [],
+  importProfiles: [],
   prefs: DEFAULT_PREFS,
   hydrated: false,
 
@@ -109,6 +116,20 @@ export const useFinanceStore = create<FinanceStore>()((set) => ({
     set((s) => ({
       incomeCategories: s.incomeCategories.filter((c) => c.id !== id),
       expenseCategories: s.expenseCategories.filter((c) => c.id !== id),
+    })),
+
+  upsertImportProfile: (profile) =>
+    set((s) => {
+      const exists = s.importProfiles.some((p) => p.id === profile.id);
+      return {
+        importProfiles: exists
+          ? s.importProfiles.map((p) => (p.id === profile.id ? profile : p))
+          : [...s.importProfiles, profile],
+      };
+    }),
+  deleteImportProfile: (id) =>
+    set((s) => ({
+      importProfiles: s.importProfiles.filter((p) => p.id !== id),
     })),
 
   updatePrefs: (updates) =>
